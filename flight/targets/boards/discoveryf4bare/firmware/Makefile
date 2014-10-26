@@ -28,13 +28,13 @@ include $(ROOT_DIR)/make/firmware-defs.mk
 USE_DSP_LIB ?= NO
 
 # List of mandatory modules to include
-#MODULES += Sensors
-#MODULES += Attitude/revolution
-#MODULES += StateEstimation # use instead of Attitude
-#MODULES += Altitude/revolution
-#MODULES += Airspeed
-#MODULES += AltitudeHold
-#MODULES += Stabilization
+##MODULES += Sensors
+##MODULES += Attitude/revolution
+##MODULES += StateEstimation # use instead of Attitude
+##MODULES += Altitude/revolution
+##MODULES += Airspeed
+##MODULES += AltitudeHold
+##MODULES += Stabilization
 MODULES += VtolPathFollower
 MODULES += ManualControl
 MODULES += Actuator
@@ -43,11 +43,12 @@ MODULES += TxPID
 MODULES += CameraStab
 MODULES += Battery
 MODULES += FirmwareIAP
-#MODULES += Radio
+##MODULES += Radio
 MODULES += PathPlanner
 MODULES += FixedWingPathFollower
 MODULES += Osd/osdoutout
 MODULES += Logging
+MODULES += ledexample
 MODULES += Telemetry
 
 OPTMODULES += ComUsbBridge

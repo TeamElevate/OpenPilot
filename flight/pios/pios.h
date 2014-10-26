@@ -284,6 +284,11 @@
 #include <pios_i2c_esc.h>
 #endif
 
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
+/* UAVTalk over I2C */
+#include <pios_i2c_uavtalk.h>
+#endif
+
 #ifdef PIOS_INCLUDE_OVERO
 /* #define PIOS_OVERO_SPI */
 #include <pios_overo.h>

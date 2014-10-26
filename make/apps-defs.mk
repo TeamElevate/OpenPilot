@@ -74,6 +74,7 @@ SRC += $(PIOSCOMMON)/pios_ms5611.c
 SRC += $(PIOSCOMMON)/pios_oplinkrcvr.c
 SRC += $(PIOSCOMMON)/pios_video.c
 SRC += $(PIOSCOMMON)/pios_wavplay.c
+SRC += $(PIOSCOMMON)/pios_i2c_uavtalk.c
 
 ## PIOS Hardware (Common)
 SRC += $(PIOSCOMMON)/pios_iap.c

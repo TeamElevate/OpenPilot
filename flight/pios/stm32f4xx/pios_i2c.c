@@ -1131,7 +1131,124 @@ int32_t PIOS_I2C_Transfer_Callback(uint32_t i2c_id, const struct pios_i2c_txn tx
     return !semaphore_success ? -2 : 0;
 }
 
-void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id)
+extern void PIOS_I2C_LoadSlaveResponse(uint32_t i2c_id, struct pios_i2c_txn txn_list[]) {
+    struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
+	i2c_adapter->slave_response_txns = txn_list;
+}
+
+extern struct pios_i2c_txn PIOS_I2C_GetLastSlaveTxn(uint32_t i2c_id) {
+    struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
+	return *(i2c_adapter->last_slave_txn);
+	/*
+	uint8_t * data = 0;
+	struct pios_i2c_txn lastTxn = {
+		.info = __func__,
+		.addr = PIOS_I2C_UAVTALK_ADDR,
+		.rw   = PIOS_I2C_TXN_WRITE,
+		.len  = sizeof(data)+i2c_id,
+		.buf  = data
+	};
+	return lastTxn;
+	*/
+}
+
+//Clear ADDR by reading SR1, then SR2
+void I2C_clear_ADDR(I2C_TypeDef* I2Cx) {
+	I2C_GetFlagStatus(I2Cx, I2C_FLAG_ADDR);
+	((void)(I2Cx->SR2));
+}
+
+//Clear STOPF by reading SR1, then writing CR1
+void I2C_clear_STOPF(I2C_TypeDef* I2Cx) {
+	I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF);
+	I2C_Cmd(I2Cx, ENABLE);
+}
+
+uint8_t data = 0;
+void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
+    struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
+    if (!PIOS_I2C_validate(i2c_adapter)) {
+        return;
+    }
+	switch(I2C_GetLastEvent(i2c_adapter->cfg->regs)) {
+		//SLAVE
+		//Receive
+		case I2C_EVENT_SLAVE_RECEIVER_ADDRESS_MATCHED: //EV1
+			I2C_clear_ADDR(i2c_adapter->cfg->regs);
+			break;
+		case I2C_EVENT_SLAVE_BYTE_RECEIVED: //EV2
+			//Read it, so no one is waiting, clears BTF if necessary
+			data = I2C_ReceiveData(i2c_adapter->cfg->regs);
+			//Do something with it
+			if(I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_DUALF)) {//Secondary Receive
+			} else if(I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_GENCALL)) {//General Receive
+			} else {//Normal
+			}
+			break;
+		case I2C_EVENT_SLAVE_STOP_DETECTED: //End of receive, EV4
+			I2C_clear_STOPF(i2c_adapter->cfg->regs);
+			break;
+
+			//Transmit
+		case I2C_EVENT_SLAVE_TRANSMITTER_ADDRESS_MATCHED: //EV1
+			I2C_clear_ADDR(i2c_adapter->cfg->regs);
+			//Send first byte
+			I2C_SendData(i2c_adapter->cfg->regs, ++data);
+			break;
+		case I2C_EVENT_SLAVE_BYTE_TRANSMITTED: //EV3
+			//Determine what you want to send
+			//data = 5;
+			if(I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_DUALF)) {//Secondary Transmit
+			} else if(I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_GENCALL)) {//General Transmit
+			} else {//Normal
+			}
+			//Read flag and write next byte to clear BTF if present
+			I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_BTF);
+			I2C_SendData(i2c_adapter->cfg->regs, ++data);
+			break;
+		case I2C_EVENT_SLAVE_ACK_FAILURE://End of transmission EV3_2
+			//TODO: Doesn't seem to be getting reached, so just
+			//check at top-level
+			//I2C_ClearITPendingBit(I2C1, I2C_IT_AF);
+			//Don't reach because caught in err handler
+			break;
+			//Alternative Cases for address match
+		case I2C_EVENT_SLAVE_RECEIVER_SECONDADDRESS_MATCHED: //EV1
+			break;
+		case I2C_EVENT_SLAVE_TRANSMITTER_SECONDADDRESS_MATCHED: //EV1
+			break;
+		case I2C_EVENT_SLAVE_GENERALCALLADDRESS_MATCHED: //EV1
+			break;
+
+
+			//MASTER
+		case I2C_EVENT_MASTER_MODE_SELECT: //EV5, just sent start bit
+			break;
+			//Receive
+		case I2C_EVENT_MASTER_RECEIVER_MODE_SELECTED: //EV6, just sent addr    
+			break;
+		case I2C_EVENT_MASTER_BYTE_RECEIVED: //EV7
+			break;
+			//Transmit
+		case I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED: //EV6, just sent addr     
+			break;
+		case I2C_EVENT_MASTER_BYTE_TRANSMITTING: //EV8, about to send data
+			break;
+		case I2C_EVENT_MASTER_BYTE_TRANSMITTED: //EV8_2, just sent data
+			break;
+
+			//Alternative addressing stuff, not going to worry about
+		case I2C_EVENT_MASTER_MODE_ADDRESS10: //EV9
+			break;
+		default:
+			//How the FUCK did you get here?
+			//I should probably raise some error, but fuck it,
+			//it's late
+			break;
+	}
+}
+
+void PIOS_I2C_EV_OLD_IRQ_Handler(uint32_t i2c_id)
 {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
 

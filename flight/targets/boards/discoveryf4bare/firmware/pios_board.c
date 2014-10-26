@@ -54,6 +54,9 @@
 /**
  * Sensor configurations
  */
+#if defined(PIOS_INCLUDE_I2C)
+#include "pios_i2c_uavtalk.h"
+#endif /* PIOS_INCLUDE_I2C */
 
 #if defined(PIOS_INCLUDE_ADC)
 #include "pios_adc_priv.h"
@@ -670,6 +673,7 @@ void PIOS_Board_Init(void)
     case HWSETTINGS_RM_FLEXIPORT_TELEMETRY:
         PIOS_Board_configure_com(&pios_usart_flexi_cfg, PIOS_COM_TELEM_RF_RX_BUF_LEN, PIOS_COM_TELEM_RF_TX_BUF_LEN, &pios_usart_com_driver, &pios_com_telem_rf_id);
         break;
+		/*
     case HWSETTINGS_RM_FLEXIPORT_I2C:
 #if defined(PIOS_INCLUDE_I2C)
         {
@@ -677,8 +681,8 @@ void PIOS_Board_Init(void)
                 PIOS_Assert(0);
             }
         }
-#endif /* PIOS_INCLUDE_I2C */
-        break;
+#endif // PIOS_INCLUDE_I2C //
+        break;*/
     case HWSETTINGS_RM_FLEXIPORT_GPS:
         PIOS_Board_configure_com(&pios_usart_flexi_cfg, PIOS_COM_GPS_RX_BUF_LEN, -1, &pios_usart_com_driver, &pios_com_gps_id);
         break;
@@ -922,6 +926,10 @@ void PIOS_Board_Init(void)
     if (PIOS_I2C_Init(&pios_i2c_mag_pressure_adapter_id, &pios_i2c_mag_pressure_adapter_cfg)) {
         PIOS_DEBUG_Assert(0);
     }
+
+	if (PIOS_I2C_Init(&pios_i2c_flexiport_adapter_id, &pios_i2c_flexiport_adapter_cfg)) {
+		PIOS_DEBUG_Assert(0);
+	}
 
     PIOS_DELAY_WaitmS(50);
 

@@ -104,6 +104,9 @@ struct pios_i2c_adapter {
     const struct pios_i2c_txn *active_txn;
     const struct pios_i2c_txn *last_txn;
 
+	struct pios_i2c_txn *last_slave_txn;
+	struct pios_i2c_txn *slave_response_txns;
+
     void    (*callback)();
 
     uint8_t *active_byte;
