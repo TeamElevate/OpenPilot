@@ -67,13 +67,16 @@ struct pios_i2c_fault_history {
 extern int32_t PIOS_I2C_Transfer(uint32_t i2c_id, const struct pios_i2c_txn txn_list[], uint32_t num_txns);
 extern int32_t PIOS_I2C_Transfer_Callback(uint32_t i2c_id, const struct pios_i2c_txn txn_list[], uint32_t num_txns, void *callback);
 //Setup callback and buffer for when i2c_slave receives complete i2c transaction
+/*
 extern void PIOS_I2C_Setup_Slave_Receive(uint32_t i2c_id, uint32_t max_len, 
 		uint8_t * buf, void (*fxn)(uint32_t, const uint8_t *));
 extern void PIOS_I2C_LoadSlaveResponse(uint32_t i2c_id, struct pios_i2c_txn txn_list[]);
-extern struct pios_i2c_txn PIOS_I2C_GetLastSlaveTxn(uint32_t i2c_id);
 //Setup buffer to return when receive slave request, if keeps
 //requesting, then we will start returning same again
 extern void PIOS_I2C_Setup_Slave_Request(uint32_t i2c_id, uint32_t len, const uint8_t * buf);
+*/
+extern struct pios_i2c_txn PIOS_I2C_GetLastSlaveTxn(uint32_t i2c_id);
+
 extern void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id);
 extern void PIOS_I2C_ER_IRQ_Handler(uint32_t i2c_id);
 extern void PIOS_I2C_GetDiagnostics(struct pios_i2c_fault_history *data, uint8_t *error_counts);

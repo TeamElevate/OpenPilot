@@ -70,3 +70,4 @@ RemoteSystemsTempFiles
 *.rej
 *.orig
 *.diff~
+*.swp

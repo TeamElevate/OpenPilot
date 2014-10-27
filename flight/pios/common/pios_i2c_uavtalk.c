@@ -33,7 +33,6 @@
 
 #ifdef PIOS_INCLUDE_I2C_UAVTALK
 
-
 int32_t PIOS_I2C_UAVTALK_Write(uint8_t address, uint8_t buffer) {
 
 	uint8_t data[] = {
@@ -52,12 +51,24 @@ int32_t PIOS_I2C_UAVTALK_Write(uint8_t address, uint8_t buffer) {
         ,
     };
 
-    return PIOS_I2C_Transfer(PIOS_I2C_FLEXI_ADAPTER, txn_list, NELEMENTS(txn_list));
+    return PIOS_I2C_Transfer(PIOS_I2C_MAIN_ADAPTER, txn_list, NELEMENTS(txn_list));
 }
 
-struct pios_i2c_txn PIOS_I2C_UAVTALK_Read() {
-	return PIOS_I2C_GetLastSlaveTxn(PIOS_I2C_FLEXI_ADAPTER);
+int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint8_t len) {
+	//return PIOS_I2C_GetLastSlaveTxn(PIOS_I2C_MAIN_ADAPTER);
+	const struct pios_i2c_txn txn_list[] = {
+		{
+			.info = __func__,
+			.addr = PIOS_I2C_UAVTALK_ADDR,
+			.rw   = PIOS_I2C_TXN_READ,
+			.len  = len,
+			.buf  = buffer,
+		}
+	};
+	return PIOS_I2C_Transfer(PIOS_I2C_MAIN_ADAPTER, txn_list,
+			NELEMENTS(txn_list));
 }
+/*
 
 void PIOS_I2C_UAVTALK_Respond(uint8_t * data) {
 	struct pios_i2c_txn i2c_response[] = {
@@ -73,6 +84,7 @@ void PIOS_I2C_UAVTALK_Respond(uint8_t * data) {
 	PIOS_I2C_LoadSlaveResponse(PIOS_I2C_FLEXI_ADAPTER,
 			i2c_response);
 }
+*/
 
 #ifndef PIOS_INCLUDE_EXTI
 #error PIOS_EXTI must be included in the project

@@ -678,10 +678,10 @@ static bool i2c_adapter_wait_for_stopped(struct pios_i2c_adapter *i2c_adapter)
 
 static void i2c_adapter_reset_bus(struct pios_i2c_adapter *i2c_adapter)
 {
-    /* Reset the I2C block */
+    // Reset the I2C block 
     I2C_DeInit(i2c_adapter->cfg->regs);
 
-    /* Make sure the bus is free by clocking it until any slaves release the bus. */
+    // Make sure the bus is free by clocking it until any slaves release the bus.
     GPIO_InitTypeDef scl_gpio_init;
     scl_gpio_init = i2c_adapter->cfg->scl.init;
     scl_gpio_init.GPIO_Mode = GPIO_Mode_OUT;
@@ -694,28 +694,28 @@ static void i2c_adapter_reset_bus(struct pios_i2c_adapter *i2c_adapter)
     GPIO_SetBits(i2c_adapter->cfg->sda.gpio, i2c_adapter->cfg->sda.init.GPIO_Pin);
     GPIO_Init(i2c_adapter->cfg->sda.gpio, &sda_gpio_init);
 
-    /* Check SDA line to determine if slave is asserting bus and clock out if so, this may  */
-    /* have to be repeated (due to futher bus errors) but better than clocking 0xFF into an */
-    /* ESC */
+    // Check SDA line to determine if slave is asserting bus and clock out if so, this may
+    // have to be repeated (due to futher bus errors) but better than clocking 0xFF into an
+    // ESC
     // bool sda_hung = GPIO_ReadInputDataBit(i2c_adapter->cfg->sda.gpio, i2c_adapter->cfg->sda.init.GPIO_Pin) == Bit_RESET;
     while (GPIO_ReadInputDataBit(i2c_adapter->cfg->sda.gpio, i2c_adapter->cfg->sda.init.GPIO_Pin) == Bit_RESET) {
-        /* Set clock high and wait for any clock stretching to finish. */
+        // Set clock high and wait for any clock stretching to finish.
         GPIO_SetBits(i2c_adapter->cfg->scl.gpio, i2c_adapter->cfg->scl.init.GPIO_Pin);
         while (GPIO_ReadInputDataBit(i2c_adapter->cfg->scl.gpio, i2c_adapter->cfg->scl.init.GPIO_Pin) == Bit_RESET) {
             ;
         }
         PIOS_DELAY_WaituS(2);
 
-        /* Set clock low */
+        // Set clock low 
         GPIO_ResetBits(i2c_adapter->cfg->scl.gpio, i2c_adapter->cfg->scl.init.GPIO_Pin);
         PIOS_DELAY_WaituS(2);
 
-        /* Clock high again */
+        // Clock high again
         GPIO_SetBits(i2c_adapter->cfg->scl.gpio, i2c_adapter->cfg->scl.init.GPIO_Pin);
         PIOS_DELAY_WaituS(2);
     }
 
-    /* Generate a start then stop condition */
+    // Generate a start then stop condition 
     GPIO_SetBits(i2c_adapter->cfg->scl.gpio, i2c_adapter->cfg->scl.init.GPIO_Pin);
     PIOS_DELAY_WaituS(2);
     GPIO_ResetBits(i2c_adapter->cfg->sda.gpio, i2c_adapter->cfg->sda.init.GPIO_Pin);
@@ -723,13 +723,13 @@ static void i2c_adapter_reset_bus(struct pios_i2c_adapter *i2c_adapter)
     GPIO_ResetBits(i2c_adapter->cfg->sda.gpio, i2c_adapter->cfg->sda.init.GPIO_Pin);
     PIOS_DELAY_WaituS(2);
 
-    /* Set data and clock high and wait for any clock stretching to finish. */
+    // Set data and clock high and wait for any clock stretching to finish.
     GPIO_SetBits(i2c_adapter->cfg->sda.gpio, i2c_adapter->cfg->sda.init.GPIO_Pin);
     GPIO_SetBits(i2c_adapter->cfg->scl.gpio, i2c_adapter->cfg->scl.init.GPIO_Pin);
     while (GPIO_ReadInputDataBit(i2c_adapter->cfg->scl.gpio, i2c_adapter->cfg->scl.init.GPIO_Pin) == Bit_RESET) {
         ;
     }
-    /* Wait for data to be high */
+    // Wait for data to be high
     while (GPIO_ReadInputDataBit(i2c_adapter->cfg->sda.gpio, i2c_adapter->cfg->sda.init.GPIO_Pin) != Bit_SET) {
         ;
     }
@@ -1130,26 +1130,17 @@ int32_t PIOS_I2C_Transfer_Callback(uint32_t i2c_id, const struct pios_i2c_txn tx
 
     return !semaphore_success ? -2 : 0;
 }
+/*
 
-extern void PIOS_I2C_LoadSlaveResponse(uint32_t i2c_id, struct pios_i2c_txn txn_list[]) {
+void PIOS_I2C_LoadSlaveResponse(uint32_t i2c_id, struct pios_i2c_txn txn_list[]) {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
 	i2c_adapter->slave_response_txns = txn_list;
 }
+*/
 
-extern struct pios_i2c_txn PIOS_I2C_GetLastSlaveTxn(uint32_t i2c_id) {
+struct pios_i2c_txn PIOS_I2C_GetLastSlaveTxn(uint32_t i2c_id) {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
 	return *(i2c_adapter->last_slave_txn);
-	/*
-	uint8_t * data = 0;
-	struct pios_i2c_txn lastTxn = {
-		.info = __func__,
-		.addr = PIOS_I2C_UAVTALK_ADDR,
-		.rw   = PIOS_I2C_TXN_WRITE,
-		.len  = sizeof(data)+i2c_id,
-		.buf  = data
-	};
-	return lastTxn;
-	*/
 }
 
 //Clear ADDR by reading SR1, then SR2
@@ -1164,8 +1155,8 @@ void I2C_clear_STOPF(I2C_TypeDef* I2Cx) {
 	I2C_Cmd(I2Cx, ENABLE);
 }
 
-uint8_t data = 0;
-void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
+uint8_t new_irq_data = 0;
+void PIOS_I2C_NEW_EV_IRQ_Handler(uint32_t i2c_id) {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
     if (!PIOS_I2C_validate(i2c_adapter)) {
         return;
@@ -1178,7 +1169,7 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			break;
 		case I2C_EVENT_SLAVE_BYTE_RECEIVED: //EV2
 			//Read it, so no one is waiting, clears BTF if necessary
-			data = I2C_ReceiveData(i2c_adapter->cfg->regs);
+			new_irq_data = I2C_ReceiveData(i2c_adapter->cfg->regs);
 			//Do something with it
 			if(I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_DUALF)) {//Secondary Receive
 			} else if(I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_GENCALL)) {//General Receive
@@ -1193,7 +1184,7 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 		case I2C_EVENT_SLAVE_TRANSMITTER_ADDRESS_MATCHED: //EV1
 			I2C_clear_ADDR(i2c_adapter->cfg->regs);
 			//Send first byte
-			I2C_SendData(i2c_adapter->cfg->regs, ++data);
+			I2C_SendData(i2c_adapter->cfg->regs, ++new_irq_data);
 			break;
 		case I2C_EVENT_SLAVE_BYTE_TRANSMITTED: //EV3
 			//Determine what you want to send
@@ -1204,7 +1195,7 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			}
 			//Read flag and write next byte to clear BTF if present
 			I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_BTF);
-			I2C_SendData(i2c_adapter->cfg->regs, ++data);
+			I2C_SendData(i2c_adapter->cfg->regs, ++new_irq_data);
 			break;
 		case I2C_EVENT_SLAVE_ACK_FAILURE://End of transmission EV3_2
 			//TODO: Doesn't seem to be getting reached, so just
@@ -1247,8 +1238,10 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			break;
 	}
 }
+/*
+*/
 
-void PIOS_I2C_EV_OLD_IRQ_Handler(uint32_t i2c_id)
+void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id)
 {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
 

@@ -927,9 +927,11 @@ void PIOS_Board_Init(void)
         PIOS_DEBUG_Assert(0);
     }
 
+	/*
 	if (PIOS_I2C_Init(&pios_i2c_flexiport_adapter_id, &pios_i2c_flexiport_adapter_cfg)) {
 		PIOS_DEBUG_Assert(0);
 	}
+	*/
 
     PIOS_DELAY_WaitmS(50);
 

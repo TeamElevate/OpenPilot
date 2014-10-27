@@ -71,8 +71,9 @@ extern int32_t PIOS_BMP085_EOC;
 
 extern int32_t PIOS_I2C_UAVTALK_Write(uint8_t address, uint8_t buffer);
 
-extern struct pios_i2c_txn PIOS_I2C_UAVTALK_Read();
-extern void PIOS_I2C_UAVTALK_Respond(uint8_t * data);
+extern int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer,
+		uint8_t len);
+//extern void PIOS_I2C_UAVTALK_Respond(uint8_t * data);
 
 #endif /* PIOS_I2C_UAVTALK_H */
 
