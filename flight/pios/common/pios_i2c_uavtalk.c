@@ -33,6 +33,10 @@
 
 #ifdef PIOS_INCLUDE_I2C_UAVTALK
 
+void PIOS_I2C_UAVTALK_Init() {
+	PIOS_I2C_SetupSlave(PIOS_I2C_MAIN_ADAPTER);
+}
+
 int32_t PIOS_I2C_UAVTALK_Write(uint8_t address, uint8_t buffer) {
 
 	uint8_t data[] = {
@@ -55,7 +59,9 @@ int32_t PIOS_I2C_UAVTALK_Write(uint8_t address, uint8_t buffer) {
 }
 
 int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint8_t len) {
-	//return PIOS_I2C_GetLastSlaveTxn(PIOS_I2C_MAIN_ADAPTER);
+	 //*buffer = *(PIOS_I2C_GetLastSlaveTxn(PIOS_I2C_MAIN_ADAPTER).buf);
+	return *buffer + len;
+	/*
 	const struct pios_i2c_txn txn_list[] = {
 		{
 			.info = __func__,
@@ -67,6 +73,7 @@ int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint8_t len) {
 	};
 	return PIOS_I2C_Transfer(PIOS_I2C_MAIN_ADAPTER, txn_list,
 			NELEMENTS(txn_list));
+			*/
 }
 /*
 

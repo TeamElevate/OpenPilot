@@ -76,6 +76,7 @@ extern void PIOS_I2C_LoadSlaveResponse(uint32_t i2c_id, struct pios_i2c_txn txn_
 extern void PIOS_I2C_Setup_Slave_Request(uint32_t i2c_id, uint32_t len, const uint8_t * buf);
 */
 extern struct pios_i2c_txn PIOS_I2C_GetLastSlaveTxn(uint32_t i2c_id);
+extern int32_t PIOS_I2C_SetupSlave(uint32_t i2c_id);
 
 extern void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id);
 extern void PIOS_I2C_ER_IRQ_Handler(uint32_t i2c_id);

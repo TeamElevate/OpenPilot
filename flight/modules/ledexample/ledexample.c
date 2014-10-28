@@ -7,6 +7,7 @@
 #define UPDATE_PERIOD 500
 
 int32_t ledexampleInitialize() {
+	PIOS_I2C_UAVTALK_Init();
 	return 0;
 }
 
@@ -23,16 +24,16 @@ static void ledexampleTask(__attribute__((unused)) void *parameters)
 	//<MyUAVObject>Get(data);
 
 	bool err_state = false;
-	uint8_t i2c_data = 0;
+	//uint8_t i2c_data = 0;
 	while(1) {
 		PIOS_LED_Toggle(PIOS_LED_D1);
 		vTaskDelayUntil(&lastSysTime,
 				UPDATE_PERIOD / portTICK_RATE_MS);
 		PIOS_LED_Toggle(PIOS_LED_D2);
-		PIOS_I2C_UAVTALK_Write(0,i2c_data);
+		//PIOS_I2C_UAVTALK_Write(0,i2c_data);
 		//struct pios_i2c_txn i2c_txn  = PIOS_I2C_UAVTALK_Read();
 		vTaskDelay(100 / portTICK_RATE_MS);
-		PIOS_I2C_UAVTALK_Read(&i2c_data, 1);
+		//PIOS_I2C_UAVTALK_Read(&i2c_data, 1);
 		/*
 		uint8_t * i2c_val = i2c_txn.buf;
 		uint8_t response [] = {

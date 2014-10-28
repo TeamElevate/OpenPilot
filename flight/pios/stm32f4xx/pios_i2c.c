@@ -63,6 +63,7 @@ enum i2c_adapter_event {
     I2C_EVENT_NACK,
     I2C_EVENT_STOPPED,
     I2C_EVENT_AUTO, /* FIXME: remove this */
+    I2C_EVENT_START_SLAVE,
 
     I2C_EVENT_NUM_EVENTS /* Must be last */
 };
@@ -94,6 +95,7 @@ static void go_bus_error(struct pios_i2c_adapter *i2c_adapter);
 static void go_stopping(struct pios_i2c_adapter *i2c_adapter);
 static void go_stopped(struct pios_i2c_adapter *i2c_adapter);
 static void go_starting(struct pios_i2c_adapter *i2c_adapter);
+static void go_starting_slave(struct pios_i2c_adapter *i2c_adapter);
 
 static void go_r_any_txn_addr(struct pios_i2c_adapter *i2c_adapter);
 static void go_r_more_txn_pre_one(struct pios_i2c_adapter *i2c_adapter);
@@ -142,8 +144,9 @@ static const struct i2c_adapter_transition i2c_adapter_transitions[I2C_STATE_NUM
     [I2C_STATE_STOPPED] =               {
         .entry_fn   = go_stopped,
         .next_state =                   {
-            [I2C_EVENT_START]     = I2C_STATE_STARTING,
-            [I2C_EVENT_BUS_ERROR] = I2C_STATE_BUS_ERROR,
+            [I2C_EVENT_START]           = I2C_STATE_STARTING,
+            [I2C_EVENT_START_SLAVE]     = I2C_STATE_STARTING_SLAVE,
+            [I2C_EVENT_BUS_ERROR]       = I2C_STATE_BUS_ERROR,
         },
     },
 
@@ -162,6 +165,14 @@ static const struct i2c_adapter_transition i2c_adapter_transitions[I2C_STATE_NUM
             [I2C_EVENT_STARTED_MORE_TXN_WRITE] = I2C_STATE_W_MORE_TXN_ADDR,
             [I2C_EVENT_STARTED_LAST_TXN_READ]  = I2C_STATE_R_LAST_TXN_ADDR,
             [I2C_EVENT_STARTED_LAST_TXN_WRITE] = I2C_STATE_W_LAST_TXN_ADDR,
+            [I2C_EVENT_NACK] = I2C_STATE_NACK,
+            [I2C_EVENT_BUS_ERROR] = I2C_STATE_BUS_ERROR,
+        },
+    },
+
+    [I2C_STATE_STARTING_SLAVE] =              {
+        .entry_fn   = go_starting_slave,
+        .next_state =                   {
             [I2C_EVENT_NACK] = I2C_STATE_NACK,
             [I2C_EVENT_BUS_ERROR] = I2C_STATE_BUS_ERROR,
         },
@@ -427,6 +438,31 @@ static void go_starting(struct pios_i2c_adapter *i2c_adapter)
         // With the IT_BUF enabled, we constantly get IRQs, See OP-326
         I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_EVT | I2C_IT_ERR, ENABLE);
     }
+	//I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_EVT | I2C_IT_BUF | I2C_IT_ERR, ENABLE); //Mike
+}
+
+static void go_starting_slave(struct pios_i2c_adapter *i2c_adapter)
+{
+	/*
+    PIOS_DEBUG_Assert(i2c_adapter->active_txn);
+    PIOS_DEBUG_Assert(i2c_adapter->active_txn >= i2c_adapter->first_txn);
+    PIOS_DEBUG_Assert(i2c_adapter->active_txn <= i2c_adapter->last_txn);
+	*/
+
+    // check for an empty read/write
+	/*
+    if (i2c_adapter->active_txn->buf != NULL && i2c_adapter->active_txn->len != 0) {
+        // Data available
+        i2c_adapter->active_byte = &(i2c_adapter->active_txn->buf[0]);
+        i2c_adapter->last_byte   = &(i2c_adapter->active_txn->buf[i2c_adapter->active_txn->len - 1]);
+    } else {
+        // No Data available => Empty read/write
+        i2c_adapter->last_byte   = NULL;
+        i2c_adapter->active_byte = i2c_adapter->last_byte + 1;
+    }
+	*/
+
+	I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_EVT | I2C_IT_BUF | I2C_IT_ERR, ENABLE);
 }
 
 /* Common to 'more' and 'last' transaction */
@@ -753,6 +789,8 @@ static void i2c_adapter_reset_bus(struct pios_i2c_adapter *i2c_adapter)
 
     /* Initialize the I2C block */
     I2C_Init(i2c_adapter->cfg->regs, (I2C_InitTypeDef *)&(i2c_adapter->cfg->init));
+	//I2C_Cmd(i2c_adapter->cfg->regs, ENABLE);
+	//I2C_ITConfig(i2c_adapter->cfg->regs, I2C_IT_EVT | I2C_IT_BUF | I2C_IT_ERR, ENABLE); //Mike
 
     // for delays during transfer timeouts
     // one tick correspond to transmission of 1 byte i.e. 9 clock ticks
@@ -1137,6 +1175,95 @@ void PIOS_I2C_LoadSlaveResponse(uint32_t i2c_id, struct pios_i2c_txn txn_list[])
 	i2c_adapter->slave_response_txns = txn_list;
 }
 */
+int32_t PIOS_I2C_SetupSlave(uint32_t i2c_id) {
+    struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
+    if (!PIOS_I2C_validate(i2c_adapter)) {
+        return -1;
+    }
+    bool semaphore_success = true;
+#ifdef USE_FREERTOS
+    /* Lock the bus */
+    portTickType timeout;
+    timeout = i2c_adapter->cfg->transfer_timeout_ms / portTICK_RATE_MS;
+    if (xSemaphoreTake(i2c_adapter->sem_busy, timeout) == pdFALSE) {
+        return -2;
+    }
+#else
+    PIOS_IRQ_Disable();
+    if (i2c_adapter->busy) {
+        PIOS_IRQ_Enable();
+        return -2;
+    }
+    i2c_adapter->busy = 1;
+    PIOS_IRQ_Enable();
+#endif /* USE_FREERTOS */
+
+    PIOS_DEBUG_Assert(i2c_adapter->curr_state == I2C_STATE_STOPPED);
+	/*
+    i2c_adapter->first_txn  = &txn_list[0];
+    i2c_adapter->last_txn   = &txn_list[num_txns - 1];
+    i2c_adapter->active_txn = i2c_adapter->first_txn;
+	*/
+
+#ifdef USE_FREERTOS
+    /* Make sure the done/ready semaphore is consumed before we start */
+    semaphore_success &= (xSemaphoreTake(i2c_adapter->sem_ready, timeout) == pdTRUE);
+#endif
+
+    // Estimate bytes of transmission. Per txns: 1 adress byte + length
+    //i2c_adapter->transfer_timeout_ticks = num_txns;
+    // timeout if it takes eight times the expected time
+    i2c_adapter->transfer_timeout_ticks <<= 3;
+
+    i2c_adapter->callback  = NULL;
+    i2c_adapter->bus_error = false;
+    i2c_adapter->nack = false;
+    i2c_adapter_inject_event(i2c_adapter, I2C_EVENT_START_SLAVE);
+
+    /* Wait for the transfer to complete */
+#ifdef USE_FREERTOS
+    semaphore_success &= (xSemaphoreTake(i2c_adapter->sem_ready, timeout) == pdTRUE);
+    xSemaphoreGive(i2c_adapter->sem_ready);
+#endif /* USE_FREERTOS */
+
+    /* Spin waiting for the transfer to finish */
+	/*
+    while (!i2c_adapter_fsm_terminated(i2c_adapter)) {
+         //sleep 9 clock ticks (1 byte), because FSM can't be faster than one byte
+          // FIXME: clock stretching could make problems, but citing NPX: alsmost no slave device implements clock stretching
+           //three times the expected time should cover clock delay
+        PIOS_DELAY_WaituS(i2c_adapter->transfer_delay_uS);
+
+        i2c_adapter->transfer_timeout_ticks--;
+        if (i2c_adapter->transfer_timeout_ticks == 0) {
+            break;
+        }
+    }
+
+    if (i2c_adapter_wait_for_stopped(i2c_adapter)) {
+        i2c_adapter_inject_event(i2c_adapter, I2C_EVENT_STOPPED);
+    } else {
+        i2c_adapter_fsm_init(i2c_adapter);
+    }
+	*/
+
+#ifdef USE_FREERTOS
+    /* Unlock the bus */
+    xSemaphoreGive(i2c_adapter->sem_busy);
+    if (!semaphore_success) {
+        i2c_timeout_counter++;
+    }
+#else
+    PIOS_IRQ_Disable();
+    i2c_adapter->busy = 0;
+    PIOS_IRQ_Enable();
+#endif /* USE_FREERTOS */
+
+    return !semaphore_success ? -2 :
+           i2c_adapter->bus_error ? -1 :
+           i2c_adapter->nack ? -3 :
+           0;
+}
 
 struct pios_i2c_txn PIOS_I2C_GetLastSlaveTxn(uint32_t i2c_id) {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
@@ -1156,25 +1283,31 @@ void I2C_clear_STOPF(I2C_TypeDef* I2Cx) {
 }
 
 uint8_t new_irq_data = 0;
-void PIOS_I2C_NEW_EV_IRQ_Handler(uint32_t i2c_id) {
+uint8_t i2c_slave_transmitting_count = 0;
+void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
     if (!PIOS_I2C_validate(i2c_adapter)) {
         return;
     }
-	switch(I2C_GetLastEvent(i2c_adapter->cfg->regs)) {
+
+	uint32_t event = I2C_GetLastEvent(i2c_adapter->cfg->regs);
+	switch(event) {
 		//SLAVE
 		//Receive
 		case I2C_EVENT_SLAVE_RECEIVER_ADDRESS_MATCHED: //EV1
 			I2C_clear_ADDR(i2c_adapter->cfg->regs);
 			break;
 		case I2C_EVENT_SLAVE_BYTE_RECEIVED: //EV2
-			//Read it, so no one is waiting, clears BTF if necessary
-			new_irq_data = I2C_ReceiveData(i2c_adapter->cfg->regs);
+		case I2C_EVENT_SLAVE_BYTE_RECEIVED | I2C_FLAG_BTF: //EV2
 			//Do something with it
 			if(I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_DUALF)) {//Secondary Receive
 			} else if(I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_GENCALL)) {//General Receive
 			} else {//Normal
 			}
+			//Read it, so no one is waiting, clears BTF if necessary
+			//By reading SR1
+			I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_BTF);
+			new_irq_data = I2C_ReceiveData(i2c_adapter->cfg->regs);
 			break;
 		case I2C_EVENT_SLAVE_STOP_DETECTED: //End of receive, EV4
 			I2C_clear_STOPF(i2c_adapter->cfg->regs);
@@ -1185,6 +1318,9 @@ void PIOS_I2C_NEW_EV_IRQ_Handler(uint32_t i2c_id) {
 			I2C_clear_ADDR(i2c_adapter->cfg->regs);
 			//Send first byte
 			I2C_SendData(i2c_adapter->cfg->regs, ++new_irq_data);
+			break;
+		case I2C_EVENT_SLAVE_BYTE_TRANSMITTING: //middle of transaction
+			i2c_slave_transmitting_count ++;
 			break;
 		case I2C_EVENT_SLAVE_BYTE_TRANSMITTED: //EV3
 			//Determine what you want to send
@@ -1198,9 +1334,10 @@ void PIOS_I2C_NEW_EV_IRQ_Handler(uint32_t i2c_id) {
 			I2C_SendData(i2c_adapter->cfg->regs, ++new_irq_data);
 			break;
 		case I2C_EVENT_SLAVE_ACK_FAILURE://End of transmission EV3_2
+		case I2C_EVENT_SLAVE_ACK_FAILURE | I2C_FLAG_BUSY :
 			//TODO: Doesn't seem to be getting reached, so just
 			//check at top-level
-			//I2C_ClearITPendingBit(I2C1, I2C_IT_AF);
+			I2C_ClearITPendingBit(i2c_adapter->cfg->regs, I2C_IT_AF);
 			//Don't reach because caught in err handler
 			break;
 			//Alternative Cases for address match
@@ -1231,17 +1368,34 @@ void PIOS_I2C_NEW_EV_IRQ_Handler(uint32_t i2c_id) {
 			//Alternative addressing stuff, not going to worry about
 		case I2C_EVENT_MASTER_MODE_ADDRESS10: //EV9
 			break;
+		case 0x600c0: //TRA, but TX & RXe
+			I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_BTF);
+			new_irq_data = I2C_ReceiveData(i2c_adapter->cfg->regs);
+			//Read flag and write next byte to clear BTF if present
+			I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_BTF);
+			I2C_SendData(i2c_adapter->cfg->regs, ++new_irq_data);
+			break;
 		default:
 			//How the FUCK did you get here?
 			//I should probably raise some error, but fuck it,
 			//it's late
 			break;
 	}
+	//get updated status
+	event = I2C_GetLastEvent(i2c_adapter->cfg->regs);
+	if(event & I2C_FLAG_STOPF) {
+        //I2C_ClearFlag(i2c_adapter->cfg->regs, I2C_FLAG_STOPF);
+		I2C_clear_STOPF(i2c_adapter->cfg->regs);
+	} if(event & I2C_FLAG_ADDR) {
+		I2C_clear_ADDR(i2c_adapter->cfg->regs);
+	}if(event & I2C_FLAG_TXE) {
+	} if(event & I2C_FLAG_RXNE) {
+	}
 }
 /*
 */
 
-void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id)
+void PIOS_I2C_OLD_EV_IRQ_Handler(uint32_t i2c_id)
 {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
 
@@ -1373,8 +1527,64 @@ skip_event:
     ;
 }
 
+void PIOS_I2C_ER_IRQ_Handler(uint32_t i2c_id) {
+	struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
 
-void PIOS_I2C_ER_IRQ_Handler(uint32_t i2c_id)
+	if (!PIOS_I2C_validate(i2c_adapter)) {
+		return;
+	}
+
+	uint32_t event = I2C_GetLastEvent(i2c_adapter->cfg->regs);
+
+#if defined(PIOS_I2C_DIAGNOSTICS)
+	i2c_erirq_history[i2c_erirq_history_pointer] = event;
+	i2c_erirq_history_pointer = (i2c_erirq_history_pointer + 1) % 5;
+#endif
+
+
+	//Can't use nice switch statement, because no fxn available
+	if(I2C_GetITStatus(i2c_adapter->cfg->regs,        I2C_IT_SMBALERT)) {
+		I2C_ClearITPendingBit(i2c_adapter->cfg->regs, I2C_IT_SMBALERT);
+	} if(I2C_GetITStatus(i2c_adapter->cfg->regs, I2C_IT_TIMEOUT)) {
+		I2C_ClearITPendingBit(i2c_adapter->cfg->regs, I2C_IT_TIMEOUT);
+	} if(I2C_GetITStatus(i2c_adapter->cfg->regs, I2C_IT_PECERR)) {
+		I2C_ClearITPendingBit(i2c_adapter->cfg->regs, I2C_IT_PECERR);
+	} if(I2C_GetITStatus(i2c_adapter->cfg->regs, I2C_IT_OVR)) {
+		//Overrun
+		//CLK stretch disabled and receiving
+		//DR has not been read, b4 next byte comes in
+		//effect: lose byte
+		//should:clear RxNE and transmitter should retransmit
+
+		//Underrun
+		//CLK stretch disabled and I2C transmitting
+		//haven't updated DR since new clock
+		//effect: same byte resent
+		//should: make sure discarded, and write next
+		I2C_ClearITPendingBit(i2c_adapter->cfg->regs, I2C_IT_OVR);
+	} if(I2C_GetITStatus(i2c_adapter->cfg->regs, I2C_IT_AF)) {
+		//Detected NACK
+		//Transmitter must reset com
+		//Slave: lines released
+		//Master: Stop or repeated Start must must be generated
+		//Master = MSL bit
+		//Fixup
+		I2C_ClearITPendingBit(i2c_adapter->cfg->regs, I2C_IT_AF);
+	} if(I2C_GetITStatus(i2c_adapter->cfg->regs, I2C_IT_ARLO)) {
+		//Arbitration Lost
+		//Goes to slave mode, but can't ack slave address in same transfer
+		//Can after repeat Start though
+		I2C_ClearITPendingBit(i2c_adapter->cfg->regs, I2C_IT_ARLO);
+	} if(I2C_GetITStatus(i2c_adapter->cfg->regs, I2C_IT_BERR)) {
+		//Bus Error
+		//In slave mode: data discarded, lines released, acts like restart
+		//In master mode: current transmission continues
+		I2C_ClearITPendingBit(i2c_adapter->cfg->regs, I2C_IT_BERR);
+	}
+}
+
+
+void PIOS_I2C_OLD_ER_IRQ_Handler(uint32_t i2c_id)
 {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
 

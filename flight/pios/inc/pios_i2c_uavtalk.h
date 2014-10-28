@@ -64,7 +64,7 @@ extern int32_t PIOS_BMP085_EOC;
 */
 
 /* Public Functions */
-//extern void PIOS_I2C_UAVTALK_Init(void);
+extern void PIOS_I2C_UAVTALK_Init(void);
 //extern void PIOS_I2C_UAVTALK_Read_UAV_Object(void);
 //extern void PIOS_I2C_UAVTALK_Send_UAV_Object(void);
 //extern void PIOS_I2C_UAVTALK_Bind_Callback(void);
