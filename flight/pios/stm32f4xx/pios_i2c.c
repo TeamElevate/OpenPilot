@@ -42,6 +42,7 @@
 #endif
 
 #include <pios_i2c_priv.h>
+#include <notification.h>
 
 // #define I2C_HALT_ON_ERRORS
 
@@ -1004,8 +1005,9 @@ int32_t PIOS_I2C_Init(uint32_t *i2c_id, const struct pios_i2c_adapter_cfg *cfg)
 
     *i2c_id = (uint32_t)i2c_adapter;
 
-	i2c_adapter->active_rx_txn = 
-		i2c_adapter->first_rx_txn;
+	i2c_adapter->i2cRxTxnQueue = xQueueCreate(MAX_RX_TXN_BUF_LENGTH,
+			sizeof(struct pios_i2c_txn *));
+
 
     /* Configure and enable I2C interrupts */
     NVIC_Init((NVIC_InitTypeDef *)&(i2c_adapter->cfg->event.init));
@@ -1305,6 +1307,21 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 		//Receive
 		case I2C_EVENT_SLAVE_RECEIVER_ADDRESS_MATCHED: //EV1
 			tmp_rx_buf_len = 0;
+			BaseType_t xTaskWokenByReceive = pdFALSE;
+			struct pios_i2c_txn *rxTxn;
+			BaseType_t rxStatus = xQueueReceiveFromISR(
+					i2c_adapter->i2cRxTxnQueue, 
+					&rxTxn, 
+					&xTaskWokenByReceive);
+			if(rxStatus == pdTRUE) {
+				pios_free(rxTxn->buf);
+				pios_free(rxTxn);
+			}
+			/*
+			if(xTaskWokenByReceive != pdFALSE) {
+				taskYield();
+			}
+			*/
 			I2C_clear_ADDR(i2c_adapter->cfg->regs);
 			break;
 		case 0x20044:
@@ -1324,9 +1341,8 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			break;
 		case I2C_EVENT_SLAVE_STOP_DETECTED: //End of receive, EV4
 			{
-				uint32_t newActive = (i2c_adapter->active_rx_txn + 1) %
-					MAX_RX_TXN_BUF_LENGTH;
-				if(newActive != i2c_adapter->first_rx_txn) {
+				if(xQueueIsQueueFullFromISR(i2c_adapter->i2cRxTxnQueue)
+						== pdFALSE) {
 					new_rx_txn = (struct pios_i2c_txn *)
 						pios_malloc(sizeof(struct pios_i2c_txn));
 					new_rx_txn->info   = __func__;
@@ -1338,13 +1354,17 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 					memcpy(new_rx_txn->buf, tmp_rx_buf, tmp_rx_buf_len);
 					tmp_rx_buf_len = 0;
 					//Insert new_rx_txn onto queue
-					if(i2c_adapter->rx_txns[i2c_adapter->active_rx_txn]) {
-						pios_free(i2c_adapter->rx_txns[i2c_adapter->active_rx_txn]->buf);
-						pios_free(i2c_adapter->rx_txns[i2c_adapter->active_rx_txn]);
+					//Copy in value of new_rx_txn, which is address of
+					//malloced txn
+					BaseType_t xHigherPriorityTaskWoken;
+					if( xQueueSendFromISR(i2c_adapter->i2cRxTxnQueue,&new_rx_txn,
+							&xHigherPriorityTaskWoken) != pdTRUE) {
+						//This shouldn't be called because it wasn't
+						//full when we got here
+						pios_free(new_rx_txn->buf);
+						pios_free(new_rx_txn);
+						//ALARM_LED_ON();
 					}
-					i2c_adapter->rx_txns[i2c_adapter->active_rx_txn] = 
-						new_rx_txn;
-					i2c_adapter->active_rx_txn = newActive;
 				}
 
 				I2C_clear_STOPF(i2c_adapter->cfg->regs);

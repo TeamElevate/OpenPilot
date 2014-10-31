@@ -107,9 +107,7 @@ struct pios_i2c_adapter {
     const struct pios_i2c_txn *active_txn;
     const struct pios_i2c_txn *last_txn;
 
-	uint32_t active_rx_txn;
-	uint32_t first_rx_txn;
-	struct pios_i2c_txn *rx_txns[MAX_RX_TXN_BUF_LENGTH];
+	xQueueHandle i2cRxTxnQueue;
 	struct pios_i2c_txn *last_slave_txn;
 	struct pios_i2c_txn *slave_response_txns;
 
