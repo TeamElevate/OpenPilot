@@ -11,6 +11,9 @@ int32_t ledexampleInitialize() {
 	return 0;
 }
 
+#define MAX_I2C_RX_BUF_LEN 100 //bytes
+#define MAX_I2C_RX_DELAY   100 //ms
+
 static void ledexampleTask(__attribute__((unused)) void *parameters)
 {
 	static portTickType lastSysTime;
@@ -25,6 +28,8 @@ static void ledexampleTask(__attribute__((unused)) void *parameters)
 
 	bool err_state = false;
 	//uint8_t i2c_data = 0;
+	uint8_t i2c_data[MAX_I2C_RX_BUF_LEN];
+	int32_t i2c_rx_status = -1;
 	while(1) {
 		PIOS_LED_Toggle(PIOS_LED_D1);
 		vTaskDelayUntil(&lastSysTime,
@@ -33,7 +38,12 @@ static void ledexampleTask(__attribute__((unused)) void *parameters)
 		//PIOS_I2C_UAVTALK_Write(0,i2c_data);
 		//struct pios_i2c_txn i2c_txn  = PIOS_I2C_UAVTALK_Read();
 		vTaskDelay(100 / portTICK_RATE_MS);
-		//PIOS_I2C_UAVTALK_Read(&i2c_data, 1);
+		i2c_rx_status = PIOS_I2C_UAVTALK_Read(i2c_data, MAX_I2C_RX_BUF_LEN, 
+				MAX_I2C_RX_DELAY);
+		if(i2c_rx_status < 0) {
+		} else {
+			PIOS_LED_Toggle(PIOS_LED_D1);
+		}
 		/*
 		uint8_t * i2c_val = i2c_txn.buf;
 		uint8_t response [] = {

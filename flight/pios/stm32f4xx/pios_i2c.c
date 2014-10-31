@@ -1307,6 +1307,7 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 		//Receive
 		case I2C_EVENT_SLAVE_RECEIVER_ADDRESS_MATCHED: //EV1
 			tmp_rx_buf_len = 0;
+			/*
 			BaseType_t xTaskWokenByReceive = pdFALSE;
 			struct pios_i2c_txn *rxTxn;
 			BaseType_t rxStatus = xQueueReceiveFromISR(
@@ -1317,6 +1318,7 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 				pios_free(rxTxn->buf);
 				pios_free(rxTxn);
 			}
+			*/
 			/*
 			if(xTaskWokenByReceive != pdFALSE) {
 				taskYield();

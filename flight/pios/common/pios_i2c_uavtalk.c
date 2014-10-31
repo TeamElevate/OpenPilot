@@ -30,6 +30,7 @@
  */
 
 #include "pios.h"
+#include <pios_i2c_priv.h>
 
 #ifdef PIOS_INCLUDE_I2C_UAVTALK
 
@@ -37,20 +38,14 @@ void PIOS_I2C_UAVTALK_Init() {
 	PIOS_I2C_SetupSlave(PIOS_I2C_MAIN_ADAPTER);
 }
 
-int32_t PIOS_I2C_UAVTALK_Write(uint8_t address, uint8_t buffer) {
-
-	uint8_t data[] = {
-        address,
-        buffer,
-    };
-
+int32_t PIOS_I2C_UAVTALK_Write(uint8_t *buffer, uint32_t length) {
     const struct pios_i2c_txn txn_list[] = {
         {
             .info = __func__,
             .addr = PIOS_I2C_UAVTALK_ADDR,
             .rw   = PIOS_I2C_TXN_WRITE,
-            .len  = sizeof(data),
-            .buf  = data,
+            .len  = length,
+            .buf  = buffer,
         }
         ,
     };
@@ -58,9 +53,37 @@ int32_t PIOS_I2C_UAVTALK_Write(uint8_t address, uint8_t buffer) {
     return PIOS_I2C_Transfer(PIOS_I2C_MAIN_ADAPTER, txn_list, NELEMENTS(txn_list));
 }
 
-int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint8_t len) {
+int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint32_t len, uint32_t timeout) {
 	 //*buffer = *(PIOS_I2C_GetLastSlaveTxn(PIOS_I2C_MAIN_ADAPTER).buf);
-	return *buffer + len;
+    struct pios_i2c_adapter *i2c_adapter;
+    i2c_adapter = (struct pios_i2c_adapter *)PIOS_I2C_MAIN_ADAPTER;
+	struct pios_i2c_txn *rx_txn;
+	uint32_t rd_len = 0;
+	bool read = 0;
+	//Look at front, and only remove when have read entire contents
+	while(xQueuePeek(i2c_adapter->i2cRxTxnQueue, &rx_txn, timeout) ==
+			pdTRUE) {
+		read = 1;
+		while(rx_txn->rd_idx < rx_txn->len &&
+				rd_len < len) {
+			buffer[rd_len++] = rx_txn->buf[rx_txn->rd_idx++];
+		}
+		if(rx_txn->rd_idx == rx_txn->len) {
+			pios_free(rx_txn->buf);
+			pios_free(rx_txn);
+			if(xQueueReceive(i2c_adapter->i2cRxTxnQueue, &rx_txn, 0)
+					!= pdTRUE) {
+				//YOU SHOULD NOT BE HERE
+				//This removes from the final queue, and we 
+				//know there is something on the front since we peeked
+			}
+		}
+		//Done reading
+		if(rd_len == len) {
+			break;
+		}
+	}
+	return read ? (int32_t)rd_len : -1;
 	/*
 	const struct pios_i2c_txn txn_list[] = {
 		{

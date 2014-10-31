@@ -69,10 +69,10 @@ extern void PIOS_I2C_UAVTALK_Init(void);
 //extern void PIOS_I2C_UAVTALK_Send_UAV_Object(void);
 //extern void PIOS_I2C_UAVTALK_Bind_Callback(void);
 
-extern int32_t PIOS_I2C_UAVTALK_Write(uint8_t address, uint8_t buffer);
+extern int32_t PIOS_I2C_UAVTALK_Write(uint8_t * buffer, uint32_t length);
 
 extern int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer,
-		uint8_t len);
+		uint32_t len, uint32_t timeout);
 //extern void PIOS_I2C_UAVTALK_Respond(uint8_t * data);
 
 #endif /* PIOS_I2C_UAVTALK_H */
