@@ -1004,6 +1004,9 @@ int32_t PIOS_I2C_Init(uint32_t *i2c_id, const struct pios_i2c_adapter_cfg *cfg)
 
     *i2c_id = (uint32_t)i2c_adapter;
 
+	i2c_adapter->active_rx_txn = 
+		i2c_adapter->first_rx_txn;
+
     /* Configure and enable I2C interrupts */
     NVIC_Init((NVIC_InitTypeDef *)&(i2c_adapter->cfg->event.init));
     NVIC_Init((NVIC_InitTypeDef *)&(i2c_adapter->cfg->error.init));
@@ -1282,8 +1285,14 @@ void I2C_clear_STOPF(I2C_TypeDef* I2Cx) {
 	I2C_Cmd(I2Cx, ENABLE);
 }
 
+#define MAX_RX_BUF_LENGTH 100
+
 uint8_t new_irq_data = 0;
 uint8_t i2c_slave_transmitting_count = 0;
+uint8_t tmp_rx_buf[MAX_RX_BUF_LENGTH];
+uint32_t tmp_rx_buf_len;
+struct pios_i2c_txn * new_rx_txn;
+
 void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
     if (!PIOS_I2C_validate(i2c_adapter)) {
@@ -1295,8 +1304,10 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 		//SLAVE
 		//Receive
 		case I2C_EVENT_SLAVE_RECEIVER_ADDRESS_MATCHED: //EV1
+			tmp_rx_buf_len = 0;
 			I2C_clear_ADDR(i2c_adapter->cfg->regs);
 			break;
+		case 0x20044:
 		case I2C_EVENT_SLAVE_BYTE_RECEIVED: //EV2
 		case I2C_EVENT_SLAVE_BYTE_RECEIVED | I2C_FLAG_BTF: //EV2
 			//Do something with it
@@ -1308,9 +1319,36 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			//By reading SR1
 			I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_BTF);
 			new_irq_data = I2C_ReceiveData(i2c_adapter->cfg->regs);
+			tmp_rx_buf[tmp_rx_buf_len ++] = new_irq_data;
+			tmp_rx_buf_len %= MAX_RX_BUF_LENGTH; //TODO: should probably know when overflow
 			break;
 		case I2C_EVENT_SLAVE_STOP_DETECTED: //End of receive, EV4
-			I2C_clear_STOPF(i2c_adapter->cfg->regs);
+			{
+				uint32_t newActive = (i2c_adapter->active_rx_txn + 1) %
+					MAX_RX_TXN_BUF_LENGTH;
+				if(newActive != i2c_adapter->first_rx_txn) {
+					new_rx_txn = (struct pios_i2c_txn *)
+						pios_malloc(sizeof(struct pios_i2c_txn));
+					new_rx_txn->info   = __func__;
+					new_rx_txn->addr   = 0x0; //nonsense
+					new_rx_txn->rw     = PIOS_I2C_TXN_READ;
+					new_rx_txn->rd_idx = 0;
+					new_rx_txn->len    = tmp_rx_buf_len;
+					new_rx_txn->buf    = pios_malloc(tmp_rx_buf_len);
+					memcpy(new_rx_txn->buf, tmp_rx_buf, tmp_rx_buf_len);
+					tmp_rx_buf_len = 0;
+					//Insert new_rx_txn onto queue
+					if(i2c_adapter->rx_txns[i2c_adapter->active_rx_txn]) {
+						pios_free(i2c_adapter->rx_txns[i2c_adapter->active_rx_txn]->buf);
+						pios_free(i2c_adapter->rx_txns[i2c_adapter->active_rx_txn]);
+					}
+					i2c_adapter->rx_txns[i2c_adapter->active_rx_txn] = 
+						new_rx_txn;
+					i2c_adapter->active_rx_txn = newActive;
+				}
+
+				I2C_clear_STOPF(i2c_adapter->cfg->regs);
+			}
 			break;
 
 			//Transmit

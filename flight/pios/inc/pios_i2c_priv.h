@@ -30,6 +30,8 @@
 #include <pios_stm32.h>
 #include <stdbool.h>
 
+#define MAX_RX_TXN_BUF_LENGTH 2
+
 struct pios_i2c_adapter_cfg {
     I2C_TypeDef       *regs;
     uint32_t          remap;
@@ -105,6 +107,9 @@ struct pios_i2c_adapter {
     const struct pios_i2c_txn *active_txn;
     const struct pios_i2c_txn *last_txn;
 
+	uint32_t active_rx_txn;
+	uint32_t first_rx_txn;
+	struct pios_i2c_txn *rx_txns[MAX_RX_TXN_BUF_LENGTH];
 	struct pios_i2c_txn *last_slave_txn;
 	struct pios_i2c_txn *slave_response_txns;
 

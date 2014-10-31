@@ -46,6 +46,7 @@ struct pios_i2c_txn {
     enum pios_i2c_txn_direction rw;
     uint32_t   len;
     uint8_t    *buf;
+	uint32_t   rd_idx;
 };
 
 #define I2C_LOG_DEPTH 20
