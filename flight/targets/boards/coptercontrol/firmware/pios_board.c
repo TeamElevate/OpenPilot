@@ -45,6 +45,7 @@
  * NOTE: THIS IS THE ONLY PLACE THAT SHOULD EVER INCLUDE THIS FILE
  */
 #include "../board_hw_defs.c"
+#include "pios_i2c_uavtalk.h"
 
 /* One slot per selectable receiver group.
  *  eg. PWM, PPM, GCS, DSMMAINPORT, DSMFLEXIPORT, SBUS
@@ -230,7 +231,9 @@ void PIOS_Board_Init(void)
 
 #ifndef ERASE_FLASH
     /* Initialize watchdog as early as possible to catch faults during init */
+#ifdef PIOS_INCLUDE_WDG
     PIOS_WDG_Init();
+#endif
 #endif
 
     /* Initialize the alarms library */
@@ -871,6 +874,10 @@ void PIOS_Board_Init(void)
     default:
         PIOS_Assert(0);
     }
+
+	if (PIOS_I2C_Init(&pios_i2c_flexi_adapter_id, &pios_i2c_flexi_adapter_cfg)) {
+		PIOS_Assert(0);
+	}
 
     /* Make sure we have at least one telemetry link configured or else fail initialization */
     PIOS_Assert(pios_com_telem_rf_id || pios_com_telem_usb_id);

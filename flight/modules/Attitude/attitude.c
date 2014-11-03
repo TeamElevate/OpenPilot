@@ -160,7 +160,9 @@ int32_t AttitudeStart(void)
     // Start main task
     xTaskCreate(AttitudeTask, "Attitude", STACK_SIZE_BYTES / 4, NULL, TASK_PRIORITY, &taskHandle);
     PIOS_TASK_MONITOR_RegisterTask(TASKINFO_RUNNING_ATTITUDE, taskHandle);
+#ifdef PIOS_INCLUDE_WDG
     PIOS_WDG_RegisterFlag(PIOS_WDG_ATTITUDE);
+#endif
 
     return 0;
 }
@@ -225,7 +227,9 @@ static void AttitudeTask(__attribute__((unused)) void *parameters)
     // Set critical error and wait until the accel is producing data
     while (PIOS_ADXL345_FifoElements() == 0) {
         AlarmsSet(SYSTEMALARMS_ALARM_ATTITUDE, SYSTEMALARMS_ALARM_CRITICAL);
+#ifdef PIOS_INCLUDE_WDG
         PIOS_WDG_UpdateFlag(PIOS_WDG_ATTITUDE);
+#endif
     }
 
     bool cc3d = BOARDISCC3D;
@@ -292,7 +296,9 @@ static void AttitudeTask(__attribute__((unused)) void *parameters)
             init = 1;
         }
 
+#ifdef PIOS_INCLUDE_WDG
         PIOS_WDG_UpdateFlag(PIOS_WDG_ATTITUDE);
+#endif
 
         AccelStateData accelState;
         GyroStateData gyros;

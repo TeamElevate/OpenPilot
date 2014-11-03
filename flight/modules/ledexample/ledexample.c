@@ -44,7 +44,7 @@ static void ProcessI2CStream(UAVTalkConnection inConnectionHandle,
 				//UAVTalkRelayObject(inConnectionHandle, outConnectionHandle);
 				if(UAVTalkReceiveObject(inConnectionHandle) == 0) {
 					//Succesfully unpacked!
-					PIOS_LED_Toggle(PIOS_LED_D1);
+					//PIOS_LED_Toggle(PIOS_LED_D1);
 				} else {
 				}
 		}
@@ -55,6 +55,7 @@ int32_t ledexampleInitialize() {
 	PIOS_I2C_UAVTALK_Init();
 	//initialize UAVTalk
 	i2cUAVTalkCon = UAVTalkInitialize(&sendHandler);
+	
 	return 0;
 }
 
@@ -75,14 +76,22 @@ static void ledexampleTask(__attribute__((unused)) void *parameters)
 	//uint8_t i2c_data = 0;
 	uint8_t i2c_data[MAX_I2C_RX_BUF_LEN];
 	int32_t bytes_to_process = -1;
+	/*
+	uint8_t *byte;
+	for(int i = 0; i < 1000000; ++i) {
+		byte = pios_malloc(128);
+		if(!byte) {
+			return;
+		}
+	}
+	*/
 	while(1) {
-		PIOS_LED_Toggle(PIOS_LED_D1);
-		vTaskDelayUntil(&lastSysTime,
-				UPDATE_PERIOD / portTICK_RATE_MS);
-		PIOS_LED_Toggle(PIOS_LED_D2);
+		//PIOS_LED_Toggle(PIOS_LED_D1);
+		//vTaskDelayUntil(&lastSysTime, UPDATE_PERIOD / portTICK_RATE_MS);
+		//PIOS_LED_Toggle(PIOS_LED_D2);
 		//PIOS_I2C_UAVTALK_Write(0,i2c_data);
 		//struct pios_i2c_txn i2c_txn  = PIOS_I2C_UAVTALK_Read();
-		vTaskDelay(100 / portTICK_RATE_MS);
+		//vTaskDelay(100 / portTICK_RATE_MS);
 		bytes_to_process = PIOS_I2C_UAVTALK_Read(i2c_data, MAX_I2C_RX_BUF_LEN, 
 				MAX_I2C_RX_DELAY);
 		if(bytes_to_process < 0) {
@@ -91,7 +100,7 @@ static void ledexampleTask(__attribute__((unused)) void *parameters)
 			for(int32_t i = 0; i < bytes_to_process; ++i) {
 				ProcessI2CStream(i2cUAVTalkCon, i2c_data[i]);
 			}
-			PIOS_LED_Toggle(PIOS_LED_D1);
+			//PIOS_LED_Toggle(PIOS_LED_D1);
 		}
 		/*
 		uint8_t * i2c_val = i2c_txn.buf;
