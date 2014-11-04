@@ -1216,6 +1216,9 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			I2C_clear_ADDR(i2c_adapter->cfg->regs);
 			break;
 		case 0x20044:
+		case 0x20054:
+		case 0x00054:
+		case 0x00050:
 		case I2C_EVENT_SLAVE_BYTE_RECEIVED: //EV2
 		case I2C_EVENT_SLAVE_BYTE_RECEIVED | I2C_FLAG_BTF: //EV2
 			//Do something with it
@@ -1236,25 +1239,32 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 						== pdFALSE) {
 					new_rx_txn = (struct pios_i2c_txn *)
 						pios_malloc(sizeof(struct pios_i2c_txn));
-					new_rx_txn->info   = __func__;
-					new_rx_txn->addr   = 0x0; //nonsense
-					new_rx_txn->rw     = PIOS_I2C_TXN_READ;
-					new_rx_txn->rd_idx = 0;
-					new_rx_txn->len    = tmp_rx_buf_len;
-					new_rx_txn->buf    = pios_malloc(tmp_rx_buf_len);
-					memcpy(new_rx_txn->buf, tmp_rx_buf, tmp_rx_buf_len);
-					tmp_rx_buf_len = 0;
-					//Insert new_rx_txn onto queue
-					//Copy in value of new_rx_txn, which is address of
-					//malloced txn
-					BaseType_t xHigherPriorityTaskWoken;
-					if( xQueueSendFromISR(i2c_adapter->i2cRxTxnQueue,&new_rx_txn,
-							&xHigherPriorityTaskWoken) != pdTRUE) {
-						//This shouldn't be called because it wasn't
-						//full when we got here
-						pios_free(new_rx_txn->buf);
-						pios_free(new_rx_txn);
-						//ALARM_LED_ON();
+					if(new_rx_txn) {
+						new_rx_txn->info   = __func__;
+						new_rx_txn->addr   = 0x0; //nonsense
+						new_rx_txn->rw     = PIOS_I2C_TXN_READ;
+						new_rx_txn->rd_idx = 0;
+						new_rx_txn->len    = tmp_rx_buf_len;
+						new_rx_txn->buf    = pios_malloc(tmp_rx_buf_len);
+						if(new_rx_txn->buf) {
+							memcpy(new_rx_txn->buf, tmp_rx_buf, tmp_rx_buf_len);
+							tmp_rx_buf_len = 0;
+							//Insert new_rx_txn onto queue
+							//Copy in value of new_rx_txn, which is address of
+							//malloced txn
+							   BaseType_t xHigherPriorityTaskWoken;
+							   if( xQueueSendFromISR(i2c_adapter->i2cRxTxnQueue,&new_rx_txn,
+							   &xHigherPriorityTaskWoken) != pdTRUE) {
+								//This shouldn't be called because it wasn't
+								//full when we got here
+								pios_free(new_rx_txn->buf);
+								pios_free(new_rx_txn);
+								//ALARM_LED_ON();
+							}
+						} else { //no buf
+							tmp_rx_buf_len = 0;
+							pios_free(new_rx_txn);
+						}
 					}
 				}
 
@@ -1331,6 +1341,7 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			break;
 	}
 	//get updated status
+	/*
 	event = I2C_GetLastEvent(i2c_adapter->cfg->regs);
 	if(event & I2C_FLAG_STOPF) {
         //I2C_ClearFlag(i2c_adapter->cfg->regs, I2C_FLAG_STOPF);
@@ -1340,6 +1351,7 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 	}if(event & I2C_FLAG_TXE) {
 	} if(event & I2C_FLAG_RXNE) {
 	}
+	*/
 }
 
 void PIOS_I2C_OLD_EV_IRQ_Handler(uint32_t i2c_id)
