@@ -192,10 +192,10 @@ static void manualControlTask(void)
     // Depending on the mode update the Stabilization or Actuator objects
     const controlHandler *handler = &handler_MANUAL;
     switch (newMode) {
+    case FLIGHTSTATUS_FLIGHTMODE_STABILIZED1:
     case FLIGHTSTATUS_FLIGHTMODE_MANUAL:
         handler = &handler_MANUAL;
         break;
-    case FLIGHTSTATUS_FLIGHTMODE_STABILIZED1:
     case FLIGHTSTATUS_FLIGHTMODE_STABILIZED2:
     case FLIGHTSTATUS_FLIGHTMODE_STABILIZED3:
     case FLIGHTSTATUS_FLIGHTMODE_STABILIZED4:

@@ -254,6 +254,7 @@ static void actuatorTask(__attribute__((unused)) void *parameters)
         }
 
         bool armed = flightStatus.Armed == FLIGHTSTATUS_ARMED_ARMED;
+		armed = true;
 
         // safety settings
         if (!armed) {

@@ -34,10 +34,10 @@ ERASE_FLASH ?= NO
 MODULES += Attitude
 MODULES += Stabilization
 MODULES += Actuator
-MODULES += Receiver
+#MODULES += Receiver
 MODULES += ManualControl
 MODULES += FirmwareIAP
-#MODULES += Telemetry
+MODULES += Telemetry
 MODULES += ledexample
 
 # List of optional modules to include
