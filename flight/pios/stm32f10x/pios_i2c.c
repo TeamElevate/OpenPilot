@@ -896,6 +896,17 @@ static struct pios_i2c_adapter *PIOS_I2C_alloc(void)
 }
 #endif /* if defined(PIOS_INCLUDE_FREERTOS) */
 
+#define MAX_RX_BUF_LENGTH 100
+
+uint8_t new_irq_data = 0;
+uint8_t i2c_slave_transmitting_count = 0;
+uint8_t tmp_rx_buf[MAX_RX_BUF_LENGTH];
+struct pios_i2c_txn rx_buf_q_txns[MAX_RX_TXN_BUF_LENGTH];
+uint8_t rx_buf_space[MAX_RX_TXN_BUF_LENGTH * MAX_RX_BUF_LENGTH];
+uint32_t rx_buf_q_idx = 0;
+uint32_t tmp_rx_buf_len;
+struct pios_i2c_txn * new_rx_txn;
+
 
 /**
  * Initializes IIC driver
@@ -949,6 +960,9 @@ int32_t PIOS_I2C_Init(uint32_t *i2c_id, const struct pios_i2c_adapter_cfg *cfg)
 
 	i2c_adapter->i2cRxTxnQueue = xQueueCreate(MAX_RX_TXN_BUF_LENGTH,
 			sizeof(struct pios_i2c_txn *));
+	for(int i = 0; i < MAX_RX_TXN_BUF_LENGTH; ++i) {
+		rx_buf_q_txns[i].buf = rx_buf_space + i*MAX_RX_BUF_LENGTH;
+	}
 
     /* Configure and enable I2C interrupts */
     NVIC_Init(&(i2c_adapter->cfg->event.init));
@@ -1176,14 +1190,6 @@ void I2C_clear_STOPF(I2C_TypeDef* I2Cx) {
 	I2C_Cmd(I2Cx, ENABLE);
 }
 
-#define MAX_RX_BUF_LENGTH 100
-
-uint8_t new_irq_data = 0;
-uint8_t i2c_slave_transmitting_count = 0;
-uint8_t tmp_rx_buf[MAX_RX_BUF_LENGTH];
-uint32_t tmp_rx_buf_len;
-struct pios_i2c_txn * new_rx_txn;
-
 void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
     if (!PIOS_I2C_validate(i2c_adapter)) {
@@ -1237,33 +1243,27 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			{
 				if(xQueueIsQueueFullFromISR(i2c_adapter->i2cRxTxnQueue)
 						== pdFALSE) {
-					new_rx_txn = (struct pios_i2c_txn *)
-						pios_malloc(sizeof(struct pios_i2c_txn));
+					new_rx_txn = &rx_buf_q_txns[rx_buf_q_idx++];
+					rx_buf_q_idx %= MAX_RX_TXN_BUF_LENGTH;
 					if(new_rx_txn) {
 						new_rx_txn->info   = __func__;
 						new_rx_txn->addr   = 0x0; //nonsense
 						new_rx_txn->rw     = PIOS_I2C_TXN_READ;
 						new_rx_txn->rd_idx = 0;
 						new_rx_txn->len    = tmp_rx_buf_len;
-						new_rx_txn->buf    = pios_malloc(tmp_rx_buf_len);
-						if(new_rx_txn->buf) {
-							memcpy(new_rx_txn->buf, tmp_rx_buf, tmp_rx_buf_len);
-							tmp_rx_buf_len = 0;
-							//Insert new_rx_txn onto queue
-							//Copy in value of new_rx_txn, which is address of
-							//malloced txn
-							   BaseType_t xHigherPriorityTaskWoken;
-							   if( xQueueSendFromISR(i2c_adapter->i2cRxTxnQueue,&new_rx_txn,
-							   &xHigherPriorityTaskWoken) != pdTRUE) {
+						memcpy(new_rx_txn->buf, tmp_rx_buf, tmp_rx_buf_len);
+						tmp_rx_buf_len = 0;
+						//Insert new_rx_txn onto queue
+						//Copy in value of new_rx_txn, which is address of
+						//malloced txn
+						BaseType_t xHigherPriorityTaskWoken;
+						if( xQueueSendFromISR(i2c_adapter->i2cRxTxnQueue,&new_rx_txn,
+								&xHigherPriorityTaskWoken) != pdTRUE) {
 								//This shouldn't be called because it wasn't
 								//full when we got here
-								pios_free(new_rx_txn->buf);
-								pios_free(new_rx_txn);
+								//pios_free(new_rx_txn->buf);
+								//pios_free(new_rx_txn);
 								//ALARM_LED_ON();
-							}
-						} else { //no buf
-							tmp_rx_buf_len = 0;
-							pios_free(new_rx_txn);
 						}
 					}
 				}

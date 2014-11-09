@@ -37,8 +37,8 @@ MODULES += Actuator
 #MODULES += Receiver
 MODULES += ManualControl
 MODULES += FirmwareIAP
-MODULES += Telemetry
 MODULES += ledexample
+MODULES += Telemetry
 
 # List of optional modules to include
 ##OPTMODULES += CameraStab

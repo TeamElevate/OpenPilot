@@ -69,8 +69,10 @@ int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint32_t len, uint32_t timeout) 
 			buffer[rd_len++] = rx_txn->buf[rx_txn->rd_idx++];
 		}
 		if(rx_txn->rd_idx == rx_txn->len) {
+			/*
 			pios_free(rx_txn->buf);
 			pios_free(rx_txn);
+			*/
 			if(xQueueReceive(i2c_adapter->i2cRxTxnQueue, &rx_txn, 0)
 					!= pdTRUE) {
 				//YOU SHOULD NOT BE HERE
