@@ -37,7 +37,7 @@ MODULES += Actuator
 #MODULES += Receiver
 MODULES += ManualControl
 MODULES += FirmwareIAP
-MODULES += ledexample
+MODULES += I2CBridge
 MODULES += Telemetry
 
 # List of optional modules to include

@@ -48,7 +48,7 @@ MODULES += PathPlanner
 MODULES += FixedWingPathFollower
 MODULES += Osd/osdoutout
 MODULES += Logging
-MODULES += ledexample
+MODULES += I2CBridge
 #MODULES += Telemetry
 
 OPTMODULES += ComUsbBridge

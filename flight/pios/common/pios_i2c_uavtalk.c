@@ -54,7 +54,8 @@ int32_t PIOS_I2C_UAVTALK_Write(uint8_t *buffer, uint32_t length) {
 }
 
 int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint32_t len, uint32_t timeout) {
-	 //*buffer = *(PIOS_I2C_GetLastSlaveTxn(PIOS_I2C_MAIN_ADAPTER).buf);
+	static portTickType baseTime;
+	baseTime = xTaskGetTickCount();
     struct pios_i2c_adapter *i2c_adapter;
     i2c_adapter = (struct pios_i2c_adapter *)PIOS_I2C_MAIN_ADAPTER;
 	struct pios_i2c_txn *rx_txn;
@@ -69,10 +70,6 @@ int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint32_t len, uint32_t timeout) 
 			buffer[rd_len++] = rx_txn->buf[rx_txn->rd_idx++];
 		}
 		if(rx_txn->rd_idx == rx_txn->len) {
-			/*
-			pios_free(rx_txn->buf);
-			pios_free(rx_txn);
-			*/
 			if(xQueueReceive(i2c_adapter->i2cRxTxnQueue, &rx_txn, 0)
 					!= pdTRUE) {
 				//YOU SHOULD NOT BE HERE
@@ -84,22 +81,11 @@ int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint32_t len, uint32_t timeout) 
 		if(rd_len == len) {
 			break;
 		}
+		timeout -= (xTaskGetTickCount() - baseTime) / portTICK_RATE_MS;
 	}
 	return read ? (int32_t)rd_len : -1;
-	/*
-	const struct pios_i2c_txn txn_list[] = {
-		{
-			.info = __func__,
-			.addr = PIOS_I2C_UAVTALK_ADDR,
-			.rw   = PIOS_I2C_TXN_READ,
-			.len  = len,
-			.buf  = buffer,
-		}
-	};
-	return PIOS_I2C_Transfer(PIOS_I2C_MAIN_ADAPTER, txn_list,
-			NELEMENTS(txn_list));
-			*/
 }
+
 /*
 
 void PIOS_I2C_UAVTALK_Respond(uint8_t * data) {
