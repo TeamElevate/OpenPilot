@@ -6,7 +6,7 @@
 //#include "ledexample.h"
 #define UPDATE_PERIOD 500
 #define MAX_I2C_RX_BUF_LEN 100 //bytes
-#define MAX_I2C_RX_DELAY   100 //ms
+#define MAX_I2C_RX_DELAY   50 //ms
 
 //Private Type
 typedef struct {
@@ -32,10 +32,24 @@ static int32_t sendHandler(uint8_t *buf, int32_t length) {
 	return PIOS_I2C_UAVTALK_Write(buf, length);
 }
 
+int32_t rx_completed_objects = 0;
+int32_t bad_checksums = 0;
+int32_t rx_processed_bytes = 0;
+UAVTalkRxState old_rx_state = UAVTALK_STATE_COMPLETE, 
+			   cur_rx_state = UAVTALK_STATE_COMPLETE;
+
 static void ProcessI2CStream(UAVTalkConnection inConnectionHandle,
 		uint8_t rxbyte) {
+	rx_processed_bytes++;
+	old_rx_state = cur_rx_state;
 	UAVTalkRxState state = UAVTalkProcessInputStreamQuiet(inConnectionHandle, rxbyte);
+	cur_rx_state = state;
+	if(cur_rx_state == UAVTALK_STATE_SYNC &&
+			old_rx_state == UAVTALK_STATE_CS) {
+		bad_checksums ++;
+	}
 	if(state == UAVTALK_STATE_COMPLETE) {
+		rx_completed_objects++;
 		uint32_t objId = UAVTalkGetPacketObjId(inConnectionHandle);
 		switch(objId) {
 			//case OPLINKSTATUS_OBJID:
@@ -62,8 +76,8 @@ int32_t ledexampleInitialize() {
 
 static void ledexampleTask(__attribute__((unused)) void *parameters)
 {
-	static portTickType lastSysTime;
-	lastSysTime = xTaskGetTickCount();
+	//static portTickType lastSysTime;
+	//lastSysTime = xTaskGetTickCount();
 	//This data struct is contained in the automatically
 	//generated UAVObject code
 	//<MyUAVObject>Data data;
@@ -129,8 +143,10 @@ static void ledexampleTask(__attribute__((unused)) void *parameters)
 		// Delay until it
 		// is time to read
 		// the next sample
+		/*
 		vTaskDelayUntil(&lastSysTime,
 				UPDATE_PERIOD / portTICK_RATE_MS);
+				*/
 	}
 }
 
@@ -139,7 +155,7 @@ int32_t ledexampleStart()
 {
 	// Start main task
 	xTaskCreate(ledexampleTask, "LedExample", 
-			128, NULL, 3, NULL);
+			128, NULL, tskIDLE_PRIORITY+4, NULL);
 		//STACK_SIZE_BYTES/4, NULL, TASK_PRIORITY, &taskHandle);
 
 		//Monitor the running status of this

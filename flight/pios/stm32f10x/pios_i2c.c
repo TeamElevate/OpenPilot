@@ -1190,6 +1190,10 @@ void I2C_clear_STOPF(I2C_TypeDef* I2Cx) {
 	I2C_Cmd(I2Cx, ENABLE);
 }
 
+
+uint32_t rx_total = 0;
+uint32_t rx_sent_upstream = 0;
+
 void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
     struct pios_i2c_adapter *i2c_adapter = (struct pios_i2c_adapter *)i2c_id;
     if (!PIOS_I2C_validate(i2c_adapter)) {
@@ -1241,6 +1245,7 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			break;
 		case I2C_EVENT_SLAVE_STOP_DETECTED: //End of receive, EV4
 			{
+				rx_total++;
 				if(xQueueIsQueueFullFromISR(i2c_adapter->i2cRxTxnQueue)
 						== pdFALSE) {
 					new_rx_txn = &rx_buf_q_txns[rx_buf_q_idx++];
@@ -1264,10 +1269,12 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 								//pios_free(new_rx_txn->buf);
 								//pios_free(new_rx_txn);
 								//ALARM_LED_ON();
+						} else {
+							rx_sent_upstream++;
 						}
 					}
+				} else {
 				}
-
 				I2C_clear_STOPF(i2c_adapter->cfg->regs);
 			}
 			break;
