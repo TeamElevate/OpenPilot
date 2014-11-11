@@ -163,9 +163,27 @@ int32_t ManualControlInitialize()
 }
 MODULE_INITCALL(ManualControlInitialize, ManualControlStart);
 
+#define PS4_FRONT_BTNS 0
+#define PS4_UNKNOWN_BTN    0x8
+#define PS4_SQUARE_BTN 0x10
+#define PS4_CROSS_BTN 0x20
+#define PS4_CIRCLE_BTN 0x40
+#define PS4_TRIANGLE_BTN 0x80
+
+#define PS4_MENU_BTNS 1
+#define PS4_L1_BTN    0x1
+#define PS4_R1_BTN    0x2
+#define PS4_L2_BTN    0x4
+#define PS4_R2_BTN    0x8
+#define PS4_SHARE_BTN 0x10
+#define PS4_OPTIONS_BTN 0x20
+#define PS4_L3_BTN 0x40
+#define PS4_R3_BTN 0x80
+
 /**
  * Module task
  */
+bool prevChangeArmed = false;
 static void manualControlTask(void)
 {
     // Process Arming
@@ -183,19 +201,38 @@ static void manualControlTask(void)
     FlightModeSettingsData modeSettings;
     FlightModeSettingsGet(&modeSettings);
 
+	//Set accessory 0 depending on button presses
+	bool changeArmed = (cmd.Channel[PS4_MENU_BTNS] & PS4_SHARE_BTN) &&
+		(cmd.Channel[PS4_MENU_BTNS] & PS4_OPTIONS_BTN);
+	//Activate on rising edge
+	if(changeArmed && !prevChangeArmed) {
+		//toggle armed
+		flightStatus.Armed = flightStatus.Armed == FLIGHTSTATUS_ARMED_ARMED ? 
+			FLIGHTSTATUS_ARMED_DISARMED : FLIGHTSTATUS_ARMED_ARMED;
+		FlightStatusSet(&flightStatus);
+	}
+	prevChangeArmed = changeArmed;
+
     uint8_t position = cmd.FlightModeSwitchPosition;
     uint8_t newMode  = flightStatus.FlightMode;
     if (position < FLIGHTMODESETTINGS_FLIGHTMODEPOSITION_NUMELEM) {
         newMode = modeSettings.FlightModePosition[position];
     }
 
+	//square -> MANUAL, X -> STABILIZED
+	if(cmd.Channel[PS4_FRONT_BTNS] & PS4_SQUARE_BTN) { 
+		newMode = FLIGHTSTATUS_FLIGHTMODE_MANUAL;
+	} else if (cmd.Channel[PS4_FRONT_BTNS] & PS4_CROSS_BTN) {
+		newMode = FLIGHTSTATUS_FLIGHTMODE_STABILIZED4;
+	}
+
     // Depending on the mode update the Stabilization or Actuator objects
     const controlHandler *handler = &handler_MANUAL;
     switch (newMode) {
-    case FLIGHTSTATUS_FLIGHTMODE_STABILIZED1:
     case FLIGHTSTATUS_FLIGHTMODE_MANUAL:
         handler = &handler_MANUAL;
         break;
+    case FLIGHTSTATUS_FLIGHTMODE_STABILIZED1:
     case FLIGHTSTATUS_FLIGHTMODE_STABILIZED2:
     case FLIGHTSTATUS_FLIGHTMODE_STABILIZED3:
     case FLIGHTSTATUS_FLIGHTMODE_STABILIZED4:
