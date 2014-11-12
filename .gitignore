@@ -71,3 +71,4 @@ RemoteSystemsTempFiles
 *.orig
 *.diff~
 *.swp
+cscope.out
