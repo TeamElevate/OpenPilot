@@ -37,6 +37,8 @@
 #define PIOS_I2C_UAVTALK_SLAVE MODE 0
 #define PIOS_I2C_UAVTALK_MASTER MODE 1
 #define PIOS_UAVTALK_COM_TYPE PIOS_I2C_UAVTALK_SLAVE_MODE
+#define PIOS_I2C_UAVTALK_SIGNAL_LOST_ERROR -4
+#define MAX_PIOS_I2C_UAVTALK_HEARTBEAT_DURATION 100
 
 /* Global type */
 struct pios_i2c_uavtalk_cfg {
@@ -72,7 +74,7 @@ extern void PIOS_I2C_UAVTALK_Init(void);
 extern int32_t PIOS_I2C_UAVTALK_Write(uint8_t * buffer, uint32_t length);
 
 extern int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer,
-		uint32_t len, uint32_t timeout);
+		uint32_t len, int32_t timeout);
 //extern void PIOS_I2C_UAVTALK_Respond(uint8_t * data);
 
 #endif /* PIOS_I2C_UAVTALK_H */

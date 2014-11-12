@@ -53,7 +53,8 @@ int32_t PIOS_I2C_UAVTALK_Write(uint8_t *buffer, uint32_t length) {
     return PIOS_I2C_Transfer(PIOS_I2C_MAIN_ADAPTER, txn_list, NELEMENTS(txn_list));
 }
 
-int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint32_t len, uint32_t timeout) {
+static portTickType lastTimeAvailable = 0;
+int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint32_t len, int32_t timeout) {
 	static portTickType baseTime;
 	baseTime = xTaskGetTickCount();
     struct pios_i2c_adapter *i2c_adapter;
@@ -83,7 +84,18 @@ int32_t PIOS_I2C_UAVTALK_Read(uint8_t * buffer, uint32_t len, uint32_t timeout) 
 		}
 		timeout -= (xTaskGetTickCount() - baseTime) / portTICK_RATE_MS;
 	}
-	return read ? (int32_t)rd_len : -1;
+	if(read) {
+		lastTimeAvailable = xTaskGetTickCount();
+		return (int32_t) rd_len;
+	} else {
+		int32_t diff_time = (xTaskGetTickCount() - lastTimeAvailable) /
+				portTICK_RATE_MS;
+		//if( diff_time > MAX_PIOS_I2C_UAVTALK_HEARTBEAT_DURATION) {
+		if( diff_time > 100) {
+			return PIOS_I2C_UAVTALK_SIGNAL_LOST_ERROR;
+		}
+		return -1;
+	}
 }
 
 /*

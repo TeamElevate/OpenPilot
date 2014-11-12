@@ -174,8 +174,6 @@ static const struct i2c_adapter_transition i2c_adapter_transitions[I2C_STATE_NUM
     [I2C_STATE_STARTING_SLAVE] =              {
         .entry_fn   = go_starting_slave,
         .next_state =                   {
-            [I2C_EVENT_NACK] = I2C_STATE_NACK,
-            [I2C_EVENT_BUS_ERROR] = I2C_STATE_BUS_ERROR,
         },
     },
 

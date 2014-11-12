@@ -2,6 +2,7 @@
 #include <pios_board_info.h>
 #include "taskinfo.h"
 #include "pios_i2c_uavtalk.h"
+#include <flightstatus.h>
 
 //#include "i2cbridge.h"
 #define UPDATE_PERIOD 500
@@ -67,6 +68,7 @@ static void ProcessI2CStream(UAVTalkConnection inConnectionHandle,
 
 int32_t I2CBridgeInitialize() {
 	PIOS_I2C_UAVTALK_Init();
+    FlightStatusInitialize();
 	//initialize UAVTalk
 	i2cUAVTalkCon = UAVTalkInitialize(&sendHandler);
 	
@@ -83,6 +85,13 @@ static void I2CBridgeTask(__attribute__((unused)) void *parameters)
 				MAX_I2C_RX_DELAY);
 		if(bytes_to_process < 0) {
 			//ERROR, or none available
+			if(bytes_to_process == PIOS_I2C_UAVTALK_SIGNAL_LOST_ERROR) {
+				//Disarm
+				FlightStatusData flightStatus;
+				FlightStatusGet(&flightStatus);
+				flightStatus.Armed = FLIGHTSTATUS_ARMED_DISARMED;
+				FlightStatusSet(&flightStatus);
+			}
 		} else {
 			for(int32_t i = 0; i < bytes_to_process; ++i) {
 				ProcessI2CStream(i2cUAVTalkCon, i2c_data[i]);
