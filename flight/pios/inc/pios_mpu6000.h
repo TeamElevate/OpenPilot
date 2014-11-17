@@ -100,6 +100,63 @@
 #define PIOS_MPU6000_PWRMGMT_PLL_Z_CLK        0X03
 #define PIOS_MPU6000_PWRMGMT_STOP_CLK         0X07
 
+/* Master I2C Communication on MPU6000 */
+#if defined(PIOS_MPU6000_AUXI2C)
+
+#define PIOS_MPU6000_I2C_MASTER_CTRL         0x24
+	#define MPU6000_MST_CTRL_MULT_MST_EN     0x7
+	#define MPU6000_MST_CTRL_WAIT_FOR_ES     0x6
+	#define MPU6000_MST_CTRL_SLV3_FIFO_EN    0x5
+	#define MPU6000_MST_CTRL_MST_P_NSR       0x4
+	//Rest is clock
+    #define MPU6000_MST_CLK_400KHZ           0xD
+
+#define PIOS_MPU6000_I2C_MASTER_DELAY_CTRL   0x67
+#define PIOS_MPU6000_I2C_MASTER_STATUS       0x36
+
+/*
+uint8_t PIOS_MPU6000_SLAVE_ADDR[] = {
+	0x25,
+	0x28,
+	0x2B,
+	0x2E,
+};
+*/
+
+#define PIOS_MPU6000_I2C_SLAVE_ADDR_0        0x25
+#define PIOS_MPU6000_I2C_SLAVE_REG_0         0x26
+#define PIOS_MPU6000_I2C_SLAVE_CTRL_0        0x27
+	#define MPU6000_SLV_CTRL_EN              0x7
+	#define MPU6000_SLV_BYTE_SW              0x6
+	#define MPU6000_SLV_REG_DIS              0x5
+	#define MPU6000_SLV_ORD_GRP              0x4
+	
+#define PIOS_MPU6000_I2C_SLAVE_DO_0          0x63
+#define PIOS_MPU6000_I2C_SLAVE_ADDR_1        0x28
+#define PIOS_MPU6000_I2C_SLAVE_REG_1         0x29
+#define PIOS_MPU6000_I2C_SLAVE_CTRL_1        0x2A
+#define PIOS_MPU6000_I2C_SLAVE_DO_1          0x64
+#define PIOS_MPU6000_I2C_SLAVE_ADDR_2        0x2B
+#define PIOS_MPU6000_I2C_SLAVE_REG_2         0x2C
+#define PIOS_MPU6000_I2C_SLAVE_CTRL_2        0x2D
+#define PIOS_MPU6000_I2C_SLAVE_DO_2          0x65
+#define PIOS_MPU6000_I2C_SLAVE_ADDR_3        0x2E
+#define PIOS_MPU6000_I2C_SLAVE_REG_3         0x2F
+#define PIOS_MPU6000_I2C_SLAVE_CTRL_3        0x30
+#define PIOS_MPU6000_I2C_SLAVE_DO_3          0x66
+
+#define PIOS_MPU6000_I2C_SLAVE_ADDR_OFF      0x0
+#define PIOS_MPU6000_I2C_SLAVE_REG_OFF       0x1
+#define PIOS_MPU6000_I2C_SLAVE_CTRL_OFF      0x2
+
+#define PIOS_MPU6000_EXT_SENSE_BASE          0x49
+//Actual last byte
+#define PIOS_MPU6000_EXT_SENSE_END           0x60
+
+#define PIOS_MPU6000_
+
+#endif /* PIOS_MPU6000_AUXI2C */
+
 enum pios_mpu6000_range {
     PIOS_MPU6000_SCALE_250_DEG  = 0x00,
     PIOS_MPU6000_SCALE_500_DEG  = 0x08,
@@ -140,6 +197,9 @@ struct pios_mpu6000_data {
     int16_t accel_y;
     int16_t accel_z;
 #endif /* PIOS_MPU6000_ACCEL */
+
+#if defined(PIOS_MPU6000_AUXI2C)
+#endif /* PIOS_MPU6000_AUXI2C */
     int16_t temperature;
 };
 
@@ -171,6 +231,33 @@ extern int32_t PIOS_MPU6000_Test();
 extern float PIOS_MPU6000_GetScale();
 extern float PIOS_MPU6000_GetAccelScale();
 extern bool PIOS_MPU6000_IRQHandler(void);
+
+#if defined(PIOS_MPU6000_AUXI2C)
+#define MAX_PIOS_MPU6000_I2C_SLAVES 4 //0,1,2,3 - ignoring 4
+
+struct pios_mpu6000_i2c_slave_cfg {
+	uint8_t addr;
+	uint8_t reg;
+	bool using_reg;
+
+	uint8_t slave_num;
+};
+
+
+extern int32_t PIOS_MPU6000_I2C_Init(struct pios_mpu6000_i2c_slave_cfg *cfg);
+
+//Read len bytes from MPU6000 aux device specified by addr,  
+//if reg != 0 read from that reg from device, read into buf,
+// return length read, -1 if err
+extern int32_t PIOS_MPU6000_I2C_Read(struct pios_mpu6000_i2c_slave_cfg *cfg, 
+		int32_t len, uint8_t * buf);
+
+//Write byte to MPU6000 aux device specified by addr,  
+//if reg != 0 write to that reg from device,
+// return non0 if err
+extern int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
+		uint8_t byte);
+#endif /* PIOS_MPU6000_AUXI2C */
 
 #endif /* PIOS_MPU6000_H */
 

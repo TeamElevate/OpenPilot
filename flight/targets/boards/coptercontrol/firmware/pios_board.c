@@ -868,6 +868,15 @@ void PIOS_Board_Init(void)
         PIOS_MPU6000_Init(pios_spi_gyro_id, 0, &pios_mpu6000_cfg);
         PIOS_MPU6000_CONFIG_Configure();
         init_test = PIOS_MPU6000_Test();
+
+#if defined(PIOS_MPU6000_AUXI2C)
+		struct pios_mpu6000_i2c_slave_cfg slv_cfg;
+		slv_cfg.addr = 0x1E;
+		slv_cfg.using_reg = false;
+		PIOS_MPU6000_I2C_Init(&slv_cfg);
+		PIOS_MPU6000_I2C_Write_Byte(&slv_cfg, 0xFA);
+#endif /* PIOS_MPU6000_AUXI2C */
+
 #endif /* PIOS_INCLUDE_MPU6000 */
 
         break;
