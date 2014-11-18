@@ -126,7 +126,7 @@ static const struct pios_mpu6000_cfg pios_mpu6000_cfg = {
     .Smpl_rate_div_dlp    = 1,
     .interrupt_cfg = PIOS_MPU6000_INT_CLR_ANYRD,
     .interrupt_en  = PIOS_MPU6000_INTEN_DATA_RDY,
-    .User_ctl             = PIOS_MPU6000_USERCTL_FIFO_EN | PIOS_MPU6000_USERCTL_DIS_I2C,
+    .User_ctl             = PIOS_MPU6000_USERCTL_FIFO_EN | PIOS_MPU6000_USERCTL_DIS_I2C | PIOS_MPU6000_USERCTL_I2C_MST_EN,
     .Pwr_mgmt_clk  = PIOS_MPU6000_PWRMGMT_PLL_X_CLK,
     .accel_range   = PIOS_MPU6000_ACCEL_8G,
     .gyro_range    = PIOS_MPU6000_SCALE_2000_DEG,
@@ -874,7 +874,7 @@ void PIOS_Board_Init(void)
 		slv_cfg.addr = 0x1E;
 		slv_cfg.using_reg = false;
 		PIOS_MPU6000_I2C_Init(&slv_cfg);
-		PIOS_MPU6000_I2C_Write_Byte(&slv_cfg, 0xFA);
+		PIOS_MPU6000_I2C_Write_Byte(&slv_cfg, 0x8);
 #endif /* PIOS_MPU6000_AUXI2C */
 
 #endif /* PIOS_INCLUDE_MPU6000 */

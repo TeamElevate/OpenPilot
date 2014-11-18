@@ -245,11 +245,14 @@ int32_t PIOS_MPU6000_ConfigureRanges(
     }
 
     // Sample rate divider, chosen upon digital filtering settings
+	/*
     while (PIOS_MPU6000_SetReg(PIOS_MPU6000_SMPLRT_DIV_REG,
                                filterSetting == PIOS_MPU6000_LOWPASS_256_HZ ?
                                dev->cfg->Smpl_rate_div_no_dlp : dev->cfg->Smpl_rate_div_dlp) != 0) {
         ;
     }
+	*/
+    while (PIOS_MPU6000_SetReg(PIOS_MPU6000_SMPLRT_DIV_REG, 50));
 
     dev->filter = filterSetting;
 
@@ -737,23 +740,27 @@ bool PIOS_MPU6000_IRQHandler(void)
 uint8_t num_slaves = 0;
 int32_t PIOS_MPU6000_I2C_Init(struct pios_mpu6000_i2c_slave_cfg *cfg) {
 	if(num_slaves == 0) {
+		//Setup Master configuration
+		uint8_t tempBuf = MPU6000_MST_CLK_400KHZ;
+		tempBuf |= 1 << MPU6000_MST_CTRL_MST_P_NSR;
+		tempBuf |= 0 << MPU6000_MST_CTRL_SLV3_FIFO_EN;
+		tempBuf |= 0 << MPU6000_MST_CTRL_WAIT_FOR_ES; //TODO: should set to 1 when confirmed comms
+		tempBuf |= 0 << MPU6000_MST_CTRL_MULT_MST_EN;
+		while (PIOS_MPU6000_SetReg(PIOS_MPU6000_I2C_MASTER_CTRL, tempBuf) != 0);
 	} else if (num_slaves == MAX_PIOS_MPU6000_I2C_SLAVES) {
 		return -2;
 	}
-	//Setup Master configuration
-	uint8_t tempBuf = MPU6000_MST_CLK_400KHZ;
-	tempBuf |= 1 << MPU6000_MST_CTRL_MST_P_NSR;
-	tempBuf |= 0 << MPU6000_MST_CTRL_SLV3_FIFO_EN;
-	tempBuf |= 0 << MPU6000_MST_CTRL_WAIT_FOR_ES; //TODO: should set to 1 when confirmed comms
-	tempBuf |= 0 << MPU6000_MST_CTRL_MULT_MST_EN;
-    while (PIOS_MPU6000_SetReg(PIOS_MPU6000_I2C_MASTER_CTRL, tempBuf) != 0);
-	
 	//Setup Slave
+	//delay
+	//TODO: fix to append, not overwrite
+    while (PIOS_MPU6000_SetReg(PIOS_MPU6000_I2C_MASTER_DELAY_CTRL, 1 << num_slaves) != 0);
+	/*
+
 	uint8_t addr_reg =  PIOS_MPU6000_I2C_SLAVE_ADDR_0 + num_slaves * 3;
 	//Write addr
     while (PIOS_MPU6000_SetReg(addr_reg, cfg->addr) != 0);
 
-	uint8_t ctrl_buf = 0x0; 
+	uint8_t ctrl_buf = 1;  // for len
 	if(cfg->using_reg) {
 		//Write reg
 		while (PIOS_MPU6000_SetReg(addr_reg + PIOS_MPU6000_I2C_SLAVE_REG_OFF, 
@@ -763,7 +770,7 @@ int32_t PIOS_MPU6000_I2C_Init(struct pios_mpu6000_i2c_slave_cfg *cfg) {
 		ctrl_buf |= 1 << MPU6000_SLV_REG_DIS; // Just r/w data, no reg
 	}
 
-	ctrl_buf |= 0 << MPU6000_SLV_CTRL_EN;
+	ctrl_buf |= 1 << MPU6000_SLV_CTRL_EN; //TODO: don't do that
 	ctrl_buf |= 0 << MPU6000_SLV_BYTE_SW;
 	ctrl_buf |= 0 << MPU6000_SLV_ORD_GRP;
 	//Write Ctrl
@@ -771,6 +778,7 @@ int32_t PIOS_MPU6000_I2C_Init(struct pios_mpu6000_i2c_slave_cfg *cfg) {
 				ctrl_buf) != 0);
 
 	//Set as slave
+	*/
 	cfg->slave_num = num_slaves ++;
 	return 0;
 }
@@ -785,7 +793,7 @@ int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
 	uint8_t addr_reg =  PIOS_MPU6000_I2C_SLAVE_ADDR_0 + cfg->slave_num * 3;
     while (PIOS_MPU6000_SetReg(addr_reg, cfg->addr & ~(1 << 7) ) != 0);
 
-	uint8_t ctrl_buf = 0x0; 
+	uint8_t ctrl_buf = 1;  //for len
 	if(cfg->using_reg) {
 		//Write reg
 		while (PIOS_MPU6000_SetReg(addr_reg + PIOS_MPU6000_I2C_SLAVE_REG_OFF, 
