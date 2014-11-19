@@ -752,48 +752,34 @@ int32_t PIOS_MPU6000_I2C_Init(struct pios_mpu6000_i2c_slave_cfg *cfg) {
 	}
 	//Setup Slave
 	//delay
-	//TODO: fix to append, not overwrite
-    while (PIOS_MPU6000_SetReg(PIOS_MPU6000_I2C_MASTER_DELAY_CTRL, 1 << num_slaves) != 0);
-	/*
-
-	uint8_t addr_reg =  PIOS_MPU6000_I2C_SLAVE_ADDR_0 + num_slaves * 3;
-	//Write addr
-    while (PIOS_MPU6000_SetReg(addr_reg, cfg->addr) != 0);
-
-	uint8_t ctrl_buf = 1;  // for len
-	if(cfg->using_reg) {
-		//Write reg
-		while (PIOS_MPU6000_SetReg(addr_reg + PIOS_MPU6000_I2C_SLAVE_REG_OFF, 
-					cfg->reg) != 0);
-		ctrl_buf |= 0 << MPU6000_SLV_REG_DIS;
-	} else {
-		ctrl_buf |= 1 << MPU6000_SLV_REG_DIS; // Just r/w data, no reg
-	}
-
-	ctrl_buf |= 1 << MPU6000_SLV_CTRL_EN; //TODO: don't do that
-	ctrl_buf |= 0 << MPU6000_SLV_BYTE_SW;
-	ctrl_buf |= 0 << MPU6000_SLV_ORD_GRP;
-	//Write Ctrl
-	while (PIOS_MPU6000_SetReg(addr_reg + PIOS_MPU6000_I2C_SLAVE_CTRL_OFF, 
-				ctrl_buf) != 0);
-
-	//Set as slave
-	*/
+	int32_t cur_delay_reg;
+	while( (cur_delay_reg = PIOS_MPU6000_GetReg(PIOS_MPU6000_I2C_MASTER_DELAY_CTRL))
+			< 0);
+    while (PIOS_MPU6000_SetReg(PIOS_MPU6000_I2C_MASTER_DELAY_CTRL,
+				cur_delay_reg | 1 << num_slaves) != 0);
 	cfg->slave_num = num_slaves ++;
 	return 0;
 }
 
-int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
-		uint8_t byte) {
-	//Set DO
-	while (PIOS_MPU6000_SetReg(PIOS_MPU6000_I2C_SLAVE_DO_0 +
-				cfg->slave_num,
-				byte) != 0);
-	//Set Write bit
+void PIOS_MPU6000_I2C_SLV_Stop(struct pios_mpu6000_i2c_slave_cfg
+		*cfg) {
 	uint8_t addr_reg =  PIOS_MPU6000_I2C_SLAVE_ADDR_0 + cfg->slave_num * 3;
-    while (PIOS_MPU6000_SetReg(addr_reg, cfg->addr & ~(1 << 7) ) != 0);
+	while (PIOS_MPU6000_SetReg(addr_reg + PIOS_MPU6000_I2C_SLAVE_CTRL_OFF, 0) != 0);
+}
 
-	uint8_t ctrl_buf = 1;  //for len
+void PIOS_MPU6000_I2C_CTRL_SLV(struct pios_mpu6000_i2c_slave_cfg
+		*cfg, bool reading, uint8_t len) {
+	uint8_t addr_reg =  PIOS_MPU6000_I2C_SLAVE_ADDR_0 + cfg->slave_num * 3;
+	//Set Write bit
+	uint8_t set_reg = cfg->addr;
+	if(reading) {
+		set_reg |= (1 << 7);
+	} else {
+		set_reg &= ~(1 << 7);
+	}
+	while (PIOS_MPU6000_SetReg(addr_reg, set_reg) != 0);
+
+	uint8_t ctrl_buf = len;  //for len
 	if(cfg->using_reg) {
 		//Write reg
 		while (PIOS_MPU6000_SetReg(addr_reg + PIOS_MPU6000_I2C_SLAVE_REG_OFF, 
@@ -809,6 +795,25 @@ int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
 	//Write Ctrl
 	while (PIOS_MPU6000_SetReg(addr_reg + PIOS_MPU6000_I2C_SLAVE_CTRL_OFF, 
 				ctrl_buf) != 0);
+}
+
+int32_t PIOS_MPU6000_I2C_Read(struct pios_mpu6000_i2c_slave_cfg *cfg,
+		uint8_t len, uint8_t *buf) {
+	PIOS_MPU6000_I2C_CTRL_SLV(cfg, true, len);
+	for(int i = 0; i < len; ++i) {
+		buf[i] = 1; //TODO: Actually get from ext_sens
+	}
+	return 0;
+}
+
+int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
+		uint8_t byte) {
+	//Set DO
+	while (PIOS_MPU6000_SetReg(PIOS_MPU6000_I2C_SLAVE_DO_0 +
+				cfg->slave_num,
+				byte) != 0);
+	//Set ctrl
+	PIOS_MPU6000_I2C_CTRL_SLV(cfg, false, 1);
 	return 0;
 }
 	
