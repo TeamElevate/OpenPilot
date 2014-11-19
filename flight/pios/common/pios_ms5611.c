@@ -270,8 +270,17 @@ float PIOS_MS5611_GetPressure(void)
  * \return 0 if operation was successful
  * \return -1 if error during I2C transfer
  */
+#if defined(PIOS_MPU6000_AUXI2C)
+int32_t PIOS_MS5611_Read(uint8_t address, uint8_t *buffer, uint8_t len) {
+	PIOS_MPU6000_I2C_SLV_Stop(&ms5611_i2c_cfg);
+	ms5611_i2c_cfg.reg = address;
+	ms5611_i2c_cfg.using_reg = true;
+	return PIOS_MPU6000_I2C_Read(&ms5611_i2c_cfg, len, buffer);
+}
+#else
 int32_t PIOS_MS5611_Read(uint8_t address, uint8_t *buffer, uint8_t len)
 {
+
     const struct pios_i2c_txn txn_list[] = {
         {
             .info = __func__,
@@ -292,6 +301,7 @@ int32_t PIOS_MS5611_Read(uint8_t address, uint8_t *buffer, uint8_t len)
 
     return PIOS_I2C_Transfer(i2c_id, txn_list, NELEMENTS(txn_list));
 }
+#endif /* PIOS_MPU6000_AUXI2C */
 
 /**
  * Writes one or more bytes to the MS5611
@@ -300,6 +310,14 @@ int32_t PIOS_MS5611_Read(uint8_t address, uint8_t *buffer, uint8_t len)
  * \return 0 if operation was successful
  * \return -1 if error during I2C transfer
  */
+#if defined(PIOS_MPU6000_AUXI2C)
+int32_t PIOS_MS5611_WriteCommand(uint8_t command)
+{
+	PIOS_MPU6000_I2C_SLV_Stop(&ms5611_i2c_cfg);
+	ms5611_i2c_cfg.using_reg = false;
+	return PIOS_MPU6000_I2C_Write_Byte(&ms5611_i2c_cfg, command);
+}
+#else
 int32_t PIOS_MS5611_WriteCommand(uint8_t command)
 {
     const struct pios_i2c_txn txn_list[] = {
@@ -315,6 +333,7 @@ int32_t PIOS_MS5611_WriteCommand(uint8_t command)
 
     return PIOS_I2C_Transfer(i2c_id, txn_list, NELEMENTS(txn_list));
 }
+#endif /* PIOS_MPU6000_AUXI2C */
 
 /**
  * @brief Run self-test operation.

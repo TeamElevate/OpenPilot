@@ -87,6 +87,20 @@ const struct pios_gpio_cfg *PIOS_BOARD_HW_DEFS_GetLedCfg(uint32_t board_revision
 
 #include <pios_spi_priv.h>
 
+
+#if defined(PIOS_MPU6000_AUXI2C)
+struct pios_mpu6000_i2c_slave_cfg hmc5883_i2c_cfg = {
+	.addr = 0x1E,
+	.using_reg = false,
+	.reg = 0x0,
+};
+struct pios_mpu6000_i2c_slave_cfg ms5611_i2c_cfg = { 
+	.addr = 0xEE, //111011Cx, where C is ~CSB
+	.using_reg = false,
+	.reg = 0x0,
+};
+#endif /* PIOS_MPU6000_AUXI2C */
+
 /* Gyro interface */
 void PIOS_SPI_gyro_irq_handler(void);
 void DMA1_Channel2_IRQHandler() __attribute__((alias("PIOS_SPI_gyro_irq_handler")));

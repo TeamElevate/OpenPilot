@@ -105,6 +105,12 @@ extern uint32_t pios_i2c_flexi_adapter_id;
 #define PIOS_I2C_ESC_ADAPTER     (pios_i2c_flexi_adapter_id)
 #define PIOS_I2C_BMP085_ADAPTER  (pios_i2c_flexi_adapter_id)
 
+///HMC5883
+#if defined(PIOS_MPU6000_AUXI2C)
+extern struct pios_mpu6000_i2c_slave_cfg hmc5883_i2c_cfg;
+extern struct pios_mpu6000_i2c_slave_cfg ms5611_i2c_cfg;
+#endif /* PIOS_MPU6000_AUXI2C */
+
 // ------------------------
 // PIOS_BMP085
 // ------------------------

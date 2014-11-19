@@ -870,16 +870,17 @@ void PIOS_Board_Init(void)
         init_test = PIOS_MPU6000_Test();
 
 #if defined(PIOS_MPU6000_AUXI2C)
-		struct pios_mpu6000_i2c_slave_cfg slv_cfg;
-		slv_cfg.addr = 0x1E;
-		slv_cfg.using_reg = false;
-		//slv_cfg.reg = 0x2;
-		PIOS_MPU6000_I2C_Init(&slv_cfg);
-		PIOS_MPU6000_I2C_Write_Byte(&slv_cfg, 0x8);
-		/*
+#if defined(PIOS_INCLUDE_HMC5883)
+		PIOS_MPU6000_I2C_Init(&hmc5883_i2c_cfg);
+		//PIOS_MPU6000_I2C_Write_Byte(&hmc5883_i2c_cfg, 0x8);
 		uint8_t rx_mpu_byte;
-		PIOS_MPU6000_I2C_Read(&slv_cfg, 1, &rx_mpu_byte);
+		PIOS_MPU6000_I2C_Read(&hmc5883_i2c_cfg, 1, &rx_mpu_byte);
+		/*
 		*/
+#endif /* PIOS_INCLUDE_HMC5883 */
+#if defined(PIOS_INCLUDE_MS5611)
+		PIOS_MPU6000_I2C_Init(&ms5611_i2c_cfg);
+#endif /* PIOS_INCLUDE_MS5611 */
 #endif /* PIOS_MPU6000_AUXI2C */
 
 #endif /* PIOS_INCLUDE_MPU6000 */

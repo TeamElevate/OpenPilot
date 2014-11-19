@@ -247,6 +247,15 @@ bool PIOS_HMC5883_NewDataAvailable(void)
  * \return -1 if error during I2C transfer
  * \return -2 if unable to claim i2c device
  */
+
+#if defined(PIOS_MPU6000_AUXI2C)
+static int32_t PIOS_HMC5883_Read(uint8_t address, uint8_t *buffer, uint8_t len) {
+	PIOS_MPU6000_I2C_SLV_Stop(&hmc5883_i2c_cfg);
+	hmc5883_i2c_cfg.reg = address;
+	hmc5883_i2c_cfg.using_reg = true;
+	return PIOS_MPU6000_I2C_Read(&hmc5883_i2c_cfg, len, buffer);
+}
+#else
 static int32_t PIOS_HMC5883_Read(uint8_t address, uint8_t *buffer, uint8_t len)
 {
     uint8_t addr_buffer[] = {
@@ -273,6 +282,7 @@ static int32_t PIOS_HMC5883_Read(uint8_t address, uint8_t *buffer, uint8_t len)
 
     return PIOS_I2C_Transfer(PIOS_I2C_MAIN_ADAPTER, txn_list, NELEMENTS(txn_list));
 }
+#endif /* PIOS_MPU6000_AUXI2C */
 
 /**
  * @brief Writes one or more bytes to the HMC5883
@@ -282,6 +292,15 @@ static int32_t PIOS_HMC5883_Read(uint8_t address, uint8_t *buffer, uint8_t len)
  * \return -1 if error during I2C transfer
  * \return -2 if unable to claim i2c device
  */
+#if defined(PIOS_MPU6000_AUXI2C)
+static int32_t PIOS_HMC5883_Write(uint8_t address, uint8_t buffer)
+{
+	PIOS_MPU6000_I2C_SLV_Stop(&hmc5883_i2c_cfg);
+	hmc5883_i2c_cfg.reg = address;
+	hmc5883_i2c_cfg.using_reg = true;
+	return PIOS_MPU6000_I2C_Write_Byte(&hmc5883_i2c_cfg, buffer);
+}
+#else
 static int32_t PIOS_HMC5883_Write(uint8_t address, uint8_t buffer)
 {
     uint8_t data[] = {
@@ -303,6 +322,7 @@ static int32_t PIOS_HMC5883_Write(uint8_t address, uint8_t buffer)
     ;
     return PIOS_I2C_Transfer(PIOS_I2C_MAIN_ADAPTER, txn_list, NELEMENTS(txn_list));
 }
+#endif /* PIOS_MPU6000_AUXI2C */
 
 /**
  * @brief Run self-test operation.  Do not call this during operational use!!
