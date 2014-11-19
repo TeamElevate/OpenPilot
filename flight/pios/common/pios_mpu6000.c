@@ -797,11 +797,40 @@ void PIOS_MPU6000_I2C_CTRL_SLV(struct pios_mpu6000_i2c_slave_cfg
 				ctrl_buf) != 0);
 }
 
+//Private
+int PIOS_MPU_I2C_SLV_RD_LEN(uint8_t slave_num) {
+	int tmp_buf;
+	uint8_t addr_reg =  PIOS_MPU6000_I2C_SLAVE_ADDR_0 + slave_num * 3
+		+ PIOS_MPU6000_I2C_SLAVE_CTRL_OFF;
+	while((tmp_buf = PIOS_MPU6000_GetReg(addr_reg)) < 0);
+	return 0xFF & tmp_buf;
+}
+
+int PIOS_MPU6000_I2C_BASE_ADDR(uint8_t slave_num) {
+	if(slave_num == 0) {
+		return PIOS_MPU6000_EXT_SENSE_BASE;
+	} else {
+		return PIOS_MPU6000_I2C_BASE_ADDR(slave_num - 1) +
+			PIOS_MPU_I2C_SLV_RD_LEN(slave_num - 1);
+	}
+}
+
+//No longer private
+
 int32_t PIOS_MPU6000_I2C_Read(struct pios_mpu6000_i2c_slave_cfg *cfg,
 		uint8_t len, uint8_t *buf) {
 	PIOS_MPU6000_I2C_CTRL_SLV(cfg, true, len);
-	for(int i = 0; i < len; ++i) {
-		buf[i] = 1; //TODO: Actually get from ext_sens
+	for(volatile int i = 0; i < 1000000; ++i);
+	int base_addr = PIOS_MPU6000_I2C_BASE_ADDR(
+			cfg->slave_num);
+	int max_size = 1 + PIOS_MPU6000_EXT_SENSE_END -
+		base_addr;
+	int tmp_buf;
+	for(int i = 0; i < len && 
+			i < max_size; ++i) {
+		while( (tmp_buf = PIOS_MPU6000_GetReg(
+			base_addr + i)) < 0);
+		buf[i] = tmp_buf; //TODO: Actually get from ext_sens
 	}
 	return 0;
 }

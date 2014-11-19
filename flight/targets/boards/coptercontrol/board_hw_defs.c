@@ -95,7 +95,7 @@ struct pios_mpu6000_i2c_slave_cfg hmc5883_i2c_cfg = {
 	.reg = 0x0,
 };
 struct pios_mpu6000_i2c_slave_cfg ms5611_i2c_cfg = { 
-	.addr = 0xEE, //111011Cx, where C is ~CSB
+	.addr = 0x77, //111011Cx, where C is ~CSB
 	.using_reg = false,
 	.reg = 0x0,
 };

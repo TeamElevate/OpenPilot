@@ -873,13 +873,12 @@ void PIOS_Board_Init(void)
 #if defined(PIOS_INCLUDE_HMC5883)
 		PIOS_MPU6000_I2C_Init(&hmc5883_i2c_cfg);
 		//PIOS_MPU6000_I2C_Write_Byte(&hmc5883_i2c_cfg, 0x8);
-		uint8_t rx_mpu_byte;
-		PIOS_MPU6000_I2C_Read(&hmc5883_i2c_cfg, 1, &rx_mpu_byte);
-		/*
-		*/
+		//uint8_t rx_mpu_byte[5];
+		//PIOS_MPU6000_I2C_Read(&hmc5883_i2c_cfg, 5, rx_mpu_byte);
 #endif /* PIOS_INCLUDE_HMC5883 */
 #if defined(PIOS_INCLUDE_MS5611)
 		PIOS_MPU6000_I2C_Init(&ms5611_i2c_cfg);
+		PIOS_MPU6000_I2C_Write_Byte(&ms5611_i2c_cfg, 0x8);
 #endif /* PIOS_INCLUDE_MS5611 */
 #endif /* PIOS_MPU6000_AUXI2C */
 

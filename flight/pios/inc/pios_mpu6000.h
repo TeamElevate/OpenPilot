@@ -153,6 +153,8 @@ uint8_t PIOS_MPU6000_SLAVE_ADDR[] = {
 //Actual last byte
 #define PIOS_MPU6000_EXT_SENSE_END           0x60
 
+#define PIOS_MPU6000_EXT_SENSE_SIZE (1 + PIOS_MPU6000_EXT_SENSE_END - PIOS_MPU6000_EXT_SENSE_BASE)
+
 #define PIOS_MPU6000_
 
 #endif /* PIOS_MPU6000_AUXI2C */
@@ -259,6 +261,7 @@ extern int32_t PIOS_MPU6000_I2C_Read(struct pios_mpu6000_i2c_slave_cfg *cfg,
 // return non0 if err
 extern int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
 		uint8_t byte);
+
 #endif /* PIOS_MPU6000_AUXI2C */
 
 #endif /* PIOS_MPU6000_H */
