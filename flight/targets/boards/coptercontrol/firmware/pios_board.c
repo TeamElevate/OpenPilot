@@ -877,8 +877,13 @@ void PIOS_Board_Init(void)
 		//PIOS_MPU6000_I2C_Read(&hmc5883_i2c_cfg, 5, rx_mpu_byte);
 #endif /* PIOS_INCLUDE_HMC5883 */
 #if defined(PIOS_INCLUDE_MS5611)
+#include "pios_ms5611.h"
 		PIOS_MPU6000_I2C_Init(&ms5611_i2c_cfg);
-		PIOS_MPU6000_I2C_Write_Byte(&ms5611_i2c_cfg, 0x8);
+		static const struct pios_ms5611_cfg pios_ms5611_cfg = {
+			.oversampling = MS5611_OSR_512,
+		};
+		PIOS_MS5611_Init(&pios_ms5611_cfg, pios_i2c_flexi_adapter_id);
+		//PIOS_MPU6000_I2C_Write_Byte(&ms5611_i2c_cfg, 0x8);
 #endif /* PIOS_INCLUDE_MS5611 */
 #endif /* PIOS_MPU6000_AUXI2C */
 

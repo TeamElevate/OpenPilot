@@ -820,9 +820,12 @@ int PIOS_MPU6000_I2C_BASE_ADDR(uint8_t slave_num) {
 int32_t PIOS_MPU6000_I2C_Read(struct pios_mpu6000_i2c_slave_cfg *cfg,
 		uint8_t len, uint8_t *buf) {
 	PIOS_MPU6000_I2C_CTRL_SLV(cfg, true, len);
-	for(volatile int i = 0; i < 1000000; ++i);
+	PIOS_DELAY_WaitmS(20);
+	/*
 	int base_addr = PIOS_MPU6000_I2C_BASE_ADDR(
 			cfg->slave_num);
+			*/
+	int base_addr = PIOS_MPU6000_EXT_SENSE_BASE;
 	int max_size = 1 + PIOS_MPU6000_EXT_SENSE_END -
 		base_addr;
 	int tmp_buf;
