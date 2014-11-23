@@ -98,13 +98,16 @@ int32_t MagBaroInitialize()
     magbaroEnabled = 1;
 #else
     HwSettingsInitialize();
-    uint8_t optionalModules[HWSETTINGS_OPTIONALMODULES_NUMELEM];
+	/*
+ 	struct HwSettingsOptionalModulesData optionalModules[HWSETTINGS_OPTIONALMODULES_NUMELEM];
     HwSettingsOptionalModulesGet(optionalModules);
     if (optionalModules[HWSETTINGS_OPTIONALMODULES_MAGBARO] == HWSETTINGS_OPTIONALMODULES_ENABLED) {
         magbaroEnabled = 1;
     } else {
         magbaroEnabled = 0;
     }
+	*/
+	magbaroEnabled = 1;
 #endif
 
     if (magbaroEnabled) {

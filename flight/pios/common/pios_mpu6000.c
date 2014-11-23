@@ -252,7 +252,7 @@ int32_t PIOS_MPU6000_ConfigureRanges(
         ;
     }
 	*/
-    while (PIOS_MPU6000_SetReg(PIOS_MPU6000_SMPLRT_DIV_REG, 50));
+    while (PIOS_MPU6000_SetReg(PIOS_MPU6000_SMPLRT_DIV_REG, 40));
 
     dev->filter = filterSetting;
 
@@ -820,7 +820,8 @@ int PIOS_MPU6000_I2C_BASE_ADDR(uint8_t slave_num) {
 int32_t PIOS_MPU6000_I2C_Read(struct pios_mpu6000_i2c_slave_cfg *cfg,
 		uint8_t len, uint8_t *buf) {
 	PIOS_MPU6000_I2C_CTRL_SLV(cfg, true, len);
-	PIOS_DELAY_WaitmS(20);
+	PIOS_DELAY_WaituS(4500);
+	PIOS_MPU6000_I2C_SLV_Stop(cfg);
 	/*
 	int base_addr = PIOS_MPU6000_I2C_BASE_ADDR(
 			cfg->slave_num);
@@ -846,6 +847,9 @@ int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
 				byte) != 0);
 	//Set ctrl
 	PIOS_MPU6000_I2C_CTRL_SLV(cfg, false, 1);
+
+	PIOS_DELAY_WaituS(4500);
+	PIOS_MPU6000_I2C_SLV_Stop(cfg);
 	return 0;
 }
 	

@@ -38,6 +38,7 @@ MODULES += Actuator
 MODULES += ManualControl
 MODULES += FirmwareIAP
 MODULES += I2CBridge
+#MODULES += Altitude/revolution
 MODULES += Telemetry
 
 # List of optional modules to include
@@ -46,7 +47,8 @@ MODULES += Telemetry
 ##OPTMODULES += GPS
 ##OPTMODULES += TxPID
 ##OPTMODULES += Osd/osdoutput
-#OPTMODULES += Altitude
+##OPTMODULES += Altitude
+#OPTMODULES += Extensions/MagBaro
 #OPTMODULES += Fault
 
 SRC += $(FLIGHTLIB)/notification.c
@@ -129,6 +131,7 @@ ifndef TESTAPP
     SRC += $(OPUAVSYNTHDIR)/airspeedstate.c
     SRC += $(OPUAVSYNTHDIR)/mpu6000settings.c
     SRC += $(OPUAVSYNTHDIR)/perfcounter.c
+    SRC += $(OPUAVSYNTHDIR)/magsensor.c
 else
     ## Test Code
     SRC += $(OPTESTS)/test_common.c

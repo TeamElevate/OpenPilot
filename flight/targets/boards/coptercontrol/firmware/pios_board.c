@@ -871,7 +871,52 @@ void PIOS_Board_Init(void)
 
 #if defined(PIOS_MPU6000_AUXI2C)
 #if defined(PIOS_INCLUDE_HMC5883)
+#include "pios_hmc5883.h"
+
 		PIOS_MPU6000_I2C_Init(&hmc5883_i2c_cfg);
+		/*
+		static const struct pios_exti_cfg pios_exti_hmc5883_cfg __exti_config = {
+			.vector = PIOS_HMC5883_IRQHandler,
+			.line   = EXTI_Line7,
+			.pin    = {
+				.gpio = GPIOB,
+				.init = {
+					.GPIO_Pin   = GPIO_Pin_7,
+					.GPIO_Speed = GPIO_Speed_100MHz,
+					.GPIO_Mode  = GPIO_Mode_IN,
+					.GPIO_OType = GPIO_OType_OD,
+					.GPIO_PuPd  = GPIO_PuPd_NOPULL,
+				},
+			},
+			.irq                                       = {
+				.init                                  = {
+					.NVIC_IRQChannel    = EXTI9_5_IRQn,
+					.NVIC_IRQChannelPreemptionPriority = PIOS_IRQ_PRIO_LOW,
+					.NVIC_IRQChannelSubPriority        = 0,
+					.NVIC_IRQChannelCmd = ENABLE,
+				},
+			},
+			.exti                                      = {
+				.init                                  = {
+					.EXTI_Line    = EXTI_Line7, // matches above GPIO pin
+					.EXTI_Mode    = EXTI_Mode_Interrupt,
+					.EXTI_Trigger = EXTI_Trigger_Rising,
+					.EXTI_LineCmd = ENABLE,
+				},
+			},
+		};
+		*/
+
+
+		static const struct pios_hmc5883_cfg pios_hmc5883_cfg = {
+			//.exti_cfg  = 0,
+			.M_ODR     = PIOS_HMC5883_ODR_75,
+			.Meas_Conf = PIOS_HMC5883_MEASCONF_NORMAL,
+			.Gain = PIOS_HMC5883_GAIN_1_9,
+			.Mode = PIOS_HMC5883_MODE_CONTINUOUS,
+		};
+
+		PIOS_HMC5883_Init(&pios_hmc5883_cfg);
 		//PIOS_MPU6000_I2C_Write_Byte(&hmc5883_i2c_cfg, 0x8);
 		//uint8_t rx_mpu_byte[5];
 		//PIOS_MPU6000_I2C_Read(&hmc5883_i2c_cfg, 5, rx_mpu_byte);

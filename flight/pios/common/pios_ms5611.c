@@ -105,6 +105,9 @@ int32_t PIOS_MS5611_StartADC(ConversionTypeTypeDef Type)
             continue;
         }
     }
+
+	//PIOS_DELAY_WaitmS(20);
+	//PIOS_MPU6000_I2C_SLV_Stop(&ms5611_i2c_cfg);
     lastConversionStart = PIOS_DELAY_GetRaw();
     CurrentRead = Type;
 
@@ -190,6 +193,10 @@ int32_t PIOS_MS5611_ReadADC(void)
         }
 
         RawTemperature = (Data[0] << 16) | (Data[1] << 8) | Data[2];
+		//Bad read
+		if(RawTemperature == 0) {
+			return -1;
+		}
         // Difference between actual and reference temperature
         // dT = D2 - TREF = D2 - C5 * 2^8
         deltaTemp   = ((int32_t)RawTemperature) - (CalibData.C[4] * POW2(8));
@@ -232,6 +239,10 @@ int32_t PIOS_MS5611_ReadADC(void)
             Sens2 = 0;
         }
         RawPressure = ((Data[0] << 16) | (Data[1] << 8) | Data[2]);
+		//Bad read
+		if(RawPressure == 0) {
+			return -1;
+		}
         // Offset at actual temperature
         // OFF = OFFT1 + TCO * dT = C2 * 2^16 + (C4 * dT) / 2^7
         Offset   = ((int64_t)CalibData.C[1]) * POW2(16) + (((int64_t)CalibData.C[3]) * deltaTemp) / POW2(7) - Offset2;
@@ -272,7 +283,7 @@ float PIOS_MS5611_GetPressure(void)
  */
 #if defined(PIOS_MPU6000_AUXI2C)
 int32_t PIOS_MS5611_Read(uint8_t address, uint8_t *buffer, uint8_t len) {
-	PIOS_MPU6000_I2C_SLV_Stop(&ms5611_i2c_cfg);
+	//PIOS_MPU6000_I2C_SLV_Stop(&ms5611_i2c_cfg);
 	ms5611_i2c_cfg.reg = address;
 	ms5611_i2c_cfg.using_reg = true;
 	return PIOS_MPU6000_I2C_Read(&ms5611_i2c_cfg, len, buffer);
@@ -313,7 +324,7 @@ int32_t PIOS_MS5611_Read(uint8_t address, uint8_t *buffer, uint8_t len)
 #if defined(PIOS_MPU6000_AUXI2C)
 int32_t PIOS_MS5611_WriteCommand(uint8_t command)
 {
-	PIOS_MPU6000_I2C_SLV_Stop(&ms5611_i2c_cfg);
+	//PIOS_MPU6000_I2C_SLV_Stop(&ms5611_i2c_cfg);
 	ms5611_i2c_cfg.using_reg = false;
 	return PIOS_MPU6000_I2C_Write_Byte(&ms5611_i2c_cfg, command);
 }

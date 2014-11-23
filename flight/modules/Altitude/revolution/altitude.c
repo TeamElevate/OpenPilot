@@ -54,12 +54,12 @@
 
 // Private variables
 static xTaskHandle taskHandle;
-static RevoSettingsBaroTempCorrectionPolynomialData baroCorrection;
-static RevoSettingsBaroTempCorrectionExtentData baroCorrectionExtent;
+//static RevoSettingsBaroTempCorrectionPolynomialData baroCorrection;
+//static RevoSettingsBaroTempCorrectionExtentData baroCorrectionExtent;
 static volatile bool tempCorrectionEnabled;
 // Private functions
 static void altitudeTask(void *parameters);
-static void SettingsUpdatedCb(UAVObjEvent *ev);
+//static void SettingsUpdatedCb(UAVObjEvent *ev);
 
 /**
  * Initialise the module, called on startup
@@ -81,9 +81,9 @@ int32_t AltitudeStart()
 int32_t AltitudeInitialize()
 {
     BaroSensorInitialize();
-    RevoSettingsInitialize();
-    RevoSettingsConnectCallback(&SettingsUpdatedCb);
-    SettingsUpdatedCb(NULL);
+    //RevoSettingsInitialize();
+    //RevoSettingsConnectCallback(&SettingsUpdatedCb);
+    //SettingsUpdatedCb(NULL);
 #if defined(PIOS_INCLUDE_HCSR04)
     SonarAltitudeInitialize();
 #endif
@@ -110,13 +110,15 @@ static void altitudeTask(__attribute__((unused)) void *parameters)
 // Undef for normal operation
 // #define PIOS_MS5611_SLOW_TEMP_RATE 20
 
-    RevoSettingsBaroTempCorrectionPolynomialGet(&baroCorrection);
+    //RevoSettingsBaroTempCorrectionPolynomialGet(&baroCorrection);
 
 #ifdef PIOS_MS5611_SLOW_TEMP_RATE
     uint8_t temp_press_interleave_count = 1;
 #endif
+	int32_t adc_result = 0;
     // Main task loop
     while (1) {
+		adc_result = 0;
 #if defined(PIOS_INCLUDE_HCSR04)
         // Compute the current altitude
         // depends on baro samplerate
@@ -151,7 +153,7 @@ static void altitudeTask(__attribute__((unused)) void *parameters)
         // Update the temperature data
         PIOS_MS5611_StartADC(TemperatureConv);
         vTaskDelay(PIOS_MS5611_GetDelay());
-        PIOS_MS5611_ReadADC();
+        adc_result = PIOS_MS5611_ReadADC();
 
 #ifdef PIOS_MS5611_SLOW_TEMP_RATE
         temp_press_interleave_count = PIOS_MS5611_SLOW_TEMP_RATE;
@@ -161,11 +163,16 @@ static void altitudeTask(__attribute__((unused)) void *parameters)
         // Update the pressure data
         PIOS_MS5611_StartADC(PressureConv);
         vTaskDelay(PIOS_MS5611_GetDelay());
-        PIOS_MS5611_ReadADC();
+		if(adc_result == 0) {
+			adc_result = PIOS_MS5611_ReadADC();
+		} else {
+			PIOS_MS5611_ReadADC();
+		}
 
         temp  = PIOS_MS5611_GetTemperature();
         press = PIOS_MS5611_GetPressure();
 
+		/*
         if (tempCorrectionEnabled) {
             // pressure bias = A + B*t + C*t^2 + D * t^3
             // in case the temperature is outside of the calibrated range, uses the nearest extremes
@@ -173,18 +180,32 @@ static void altitudeTask(__attribute__((unused)) void *parameters)
                           (temp < baroCorrectionExtent.min ? baroCorrectionExtent.min : temp);
             press -= baroCorrection.a + ((baroCorrection.d * ctemp + baroCorrection.c) * ctemp + baroCorrection.b) * ctemp;
         }
+		*/
         float altitude = 44330.0f * (1.0f - powf((press) / MS5611_P0, (1.0f / 5.255f)));
 
-        if (!isnan(altitude)) {
+        if (!isnan(altitude) && adc_result == 0) {
             data.Altitude    = altitude;
             data.Temperature = temp;
             data.Pressure    = press;
             // Update the BasoSensor UAVObject
             BaroSensorSet(&data);
-        }
+        } else if(adc_result != 0){
+            data.Altitude    = 5.0f;
+            data.Temperature = -10.0f;
+            data.Pressure    = 32.0f;
+            // Update the BasoSensor UAVObject
+            BaroSensorSet(&data);
+		} else {
+            data.Altitude    = 7.0f;
+            data.Temperature = temp;
+            data.Pressure    = press;
+            // Update the BasoSensor UAVObject
+            BaroSensorSet(&data);
+		}
     }
 }
 
+/*
 static void SettingsUpdatedCb(__attribute__((unused)) UAVObjEvent *ev)
 {
     RevoSettingsBaroTempCorrectionPolynomialGet(&baroCorrection);
@@ -192,6 +213,7 @@ static void SettingsUpdatedCb(__attribute__((unused)) UAVObjEvent *ev)
     tempCorrectionEnabled = !(baroCorrectionExtent.max - baroCorrectionExtent.min < 0.1f ||
                               (baroCorrection.a < 1e-9f && baroCorrection.b < 1e-9f && baroCorrection.c < 1e-9f && baroCorrection.d < 1e-9f));
 }
+*/
 /**
  * @}
  * @}
