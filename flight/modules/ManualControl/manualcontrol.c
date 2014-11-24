@@ -183,7 +183,15 @@ MODULE_INITCALL(ManualControlInitialize, ManualControlStart);
 /**
  * Module task
  */
+
+int setToggled(int a, int b, int c) {
+	return a == b ? c : b;
+}
+
 bool prevChangeArmed = false;
+uint8_t changedMode = 0;
+int lastBtn = 0;
+int lastCtrlConfig = 0;
 static void manualControlTask(void)
 {
     // Process Arming
@@ -215,16 +223,26 @@ static void manualControlTask(void)
 
     uint8_t position = cmd.FlightModeSwitchPosition;
     uint8_t newMode  = flightStatus.FlightMode;
+	if(lastBtn == 0) {
+		changedMode = newMode;
+	}
     if (position < FLIGHTMODESETTINGS_FLIGHTMODEPOSITION_NUMELEM) {
         newMode = modeSettings.FlightModePosition[position];
     }
 
+
 	//square -> MANUAL, X -> STABILIZED
-	if(cmd.Channel[PS4_FRONT_BTNS] & PS4_SQUARE_BTN) { 
-		newMode = FLIGHTSTATUS_FLIGHTMODE_MANUAL;
-	} else if (cmd.Channel[PS4_FRONT_BTNS] & PS4_CROSS_BTN) {
-		newMode = FLIGHTSTATUS_FLIGHTMODE_STABILIZED4;
+	if(cmd.Channel[PS4_MENU_BTNS] == PS4_L1_BTN 
+			&& lastCtrlConfig != PS4_L1_BTN) { 
+		changedMode = setToggled(changedMode,
+				FLIGHTSTATUS_FLIGHTMODE_STABILIZED4,
+				FLIGHTSTATUS_FLIGHTMODE_STABILIZED1);
+		lastBtn = 1;
+	} else {
+		lastBtn = 3;
 	}
+	lastCtrlConfig = cmd.Channel[PS4_MENU_BTNS];
+	newMode = changedMode;
 
     // Depending on the mode update the Stabilization or Actuator objects
     const controlHandler *handler = &handler_MANUAL;

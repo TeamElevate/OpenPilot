@@ -31,15 +31,15 @@ USE_DSP_LIB ?= NO
 ERASE_FLASH ?= NO
 
 # List of mandatory modules to include
-MODULES += Attitude
-MODULES += Stabilization
-MODULES += Actuator
+MODULES += Attitude #1336
+MODULES += Stabilization #1836
+MODULES += Actuator #1628 Bytes
 #MODULES += Receiver
-MODULES += ManualControl
-MODULES += FirmwareIAP
-MODULES += I2CBridge
-#MODULES += Altitude/revolution
-MODULES += Telemetry
+MODULES += ManualControl #568
+MODULES += FirmwareIAP #184
+MODULES += I2CBridge #1640
+MODULES += Altitude/revolution #704
+#MODULES += Telemetry #5644
 
 # List of optional modules to include
 ##OPTMODULES += CameraStab
