@@ -132,6 +132,9 @@ ifndef TESTAPP
     SRC += $(OPUAVSYNTHDIR)/mpu6000settings.c
     SRC += $(OPUAVSYNTHDIR)/perfcounter.c
     SRC += $(OPUAVSYNTHDIR)/magsensor.c
+	SRC += $(OPUAVSYNTHDIR)/velocitystate.c
+	SRC += $(OPUAVSYNTHDIR)/altitudeholdstatus.c
+	SRC += $(OPUAVSYNTHDIR)/altitudeholdsettings.c
 else
     ## Test Code
     SRC += $(OPTESTS)/test_common.c

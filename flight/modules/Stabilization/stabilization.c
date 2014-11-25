@@ -112,9 +112,9 @@ int32_t StabilizationInitialize()
 
     stabilizationOuterloopInit();
     stabilizationInnerloopInit();
-#ifdef REVOLUTION
+//#ifdef REVOLUTION
     stabilizationAltitudeloopInit();
-#endif
+//#endif
     pid_zero(&stabSettings.outerPids[0]);
     pid_zero(&stabSettings.outerPids[1]);
     pid_zero(&stabSettings.outerPids[2]);

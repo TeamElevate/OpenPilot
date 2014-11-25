@@ -40,6 +40,7 @@
 
 #include "altitude.h"
 #include "barosensor.h" // object that will be updated by the module
+#include "velocitystate.h"
 #include "revosettings.h"
 #if defined(PIOS_INCLUDE_HCSR04)
 #include "sonaraltitude.h" // object that will be updated by the module
@@ -81,6 +82,7 @@ int32_t AltitudeStart()
 int32_t AltitudeInitialize()
 {
     BaroSensorInitialize();
+    VelocityStateInitialize();
     //RevoSettingsInitialize();
     //RevoSettingsConnectCallback(&SettingsUpdatedCb);
     //SettingsUpdatedCb(NULL);
@@ -116,6 +118,9 @@ static void altitudeTask(__attribute__((unused)) void *parameters)
     uint8_t temp_press_interleave_count = 1;
 #endif
 	int32_t adc_result = 0;
+	float last_altitude = 0;
+	uint32_t last_alt_time = 0;
+	bool first_alt_reading = true;
     // Main task loop
     while (1) {
 		adc_result = 0;
@@ -189,7 +194,27 @@ static void altitudeTask(__attribute__((unused)) void *parameters)
             data.Pressure    = press;
             // Update the BasoSensor UAVObject
             BaroSensorSet(&data);
-        } else if(adc_result != 0){
+			uint32_t cur_time = PIOS_DELAY_GetuS();
+
+			if(first_alt_reading) {
+				first_alt_reading = false;
+				VelocityStateData velocityState;
+				VelocityStateGet(&velocityState);
+				velocityState.Down  = 0;
+				VelocityStateSet(&velocityState);
+			} else {
+				VelocityStateData velocityState;
+				VelocityStateGet(&velocityState);
+				velocityState.Down  = (altitude - last_altitude) / 
+					((cur_time - last_alt_time) * 1000000);
+				VelocityStateSet(&velocityState);
+			}
+			last_altitude = altitude;
+			last_alt_time = cur_time;
+
+        } 
+		/*
+		else if(adc_result != 0){
             data.Altitude    = 5.0f;
             data.Temperature = -10.0f;
             data.Pressure    = 32.0f;
@@ -202,6 +227,7 @@ static void altitudeTask(__attribute__((unused)) void *parameters)
             // Update the BasoSensor UAVObject
             BaroSensorSet(&data);
 		}
+		*/
     }
 }
 
