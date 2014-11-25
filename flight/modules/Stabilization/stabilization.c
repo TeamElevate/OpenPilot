@@ -113,7 +113,9 @@ int32_t StabilizationInitialize()
     stabilizationOuterloopInit();
     stabilizationInnerloopInit();
 //#ifdef REVOLUTION
+#ifdef PIOS_INCLUDE_MS5611
     stabilizationAltitudeloopInit();
+#endif
 //#endif
     pid_zero(&stabSettings.outerPids[0]);
     pid_zero(&stabSettings.outerPids[1]);

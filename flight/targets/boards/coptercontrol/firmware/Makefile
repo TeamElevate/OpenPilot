@@ -37,9 +37,9 @@ MODULES += Actuator #1628 Bytes
 #MODULES += Receiver
 MODULES += ManualControl #568
 MODULES += FirmwareIAP #184
-MODULES += I2CBridge #1640
-MODULES += Altitude/revolution #704
-#MODULES += Telemetry #5644
+#MODULES += I2CBridge #1640
+#MODULES += Altitude/revolution #704
+MODULES += Telemetry #5644
 
 # List of optional modules to include
 ##OPTMODULES += CameraStab

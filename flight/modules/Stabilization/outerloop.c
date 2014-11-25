@@ -248,12 +248,14 @@ static void stabilizationOuterloopTask()
         } else {
             switch (cast_struct_to_array(enabled, enabled.Roll)[t]) {
 //#ifdef REVOLUTION
+#ifdef PIOS_INCLUDE_MS5611
             case STABILIZATIONSTATUS_OUTERLOOP_ALTITUDE:
                 rateDesiredAxis[t] = stabilizationAltitudeHold(stabilizationDesiredAxis[t], ALTITUDEHOLD, reinit);
                 break;
             case STABILIZATIONSTATUS_OUTERLOOP_ALTITUDEVARIO:
                 rateDesiredAxis[t] = stabilizationAltitudeHold(stabilizationDesiredAxis[t], ALTITUDEVARIO, reinit);
                 break;
+#endif /* MS5611 */
 //#endif /* REVOLUTION */
             case STABILIZATIONSTATUS_OUTERLOOP_DIRECT:
             default:

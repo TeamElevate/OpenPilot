@@ -40,6 +40,7 @@
 
 /* Glocal Variables */
 ConversionTypeTypeDef CurrentRead;
+bool inTask = false;
 
 /* Local Variables */
 MS5611CalibDataTypeDef CalibData;
@@ -88,6 +89,10 @@ void PIOS_MS5611_Init(const struct pios_ms5611_cfg *cfg, int32_t i2c_device)
     }
 }
 
+void PIOS_MS5611_EnterTask() {
+	inTask = true;
+}
+
 /**
  * Start the ADC conversion
  * \param[in] PresOrTemp BMP085_PRES_ADDR or BMP085_TEMP_ADDR
@@ -95,6 +100,7 @@ void PIOS_MS5611_Init(const struct pios_ms5611_cfg *cfg, int32_t i2c_device)
  */
 int32_t PIOS_MS5611_StartADC(ConversionTypeTypeDef Type)
 {
+	PIOS_MS5611_EnterTask();
     /* Start the conversion */
     if (Type == TemperatureConv) {
         while (PIOS_MS5611_WriteCommand(MS5611_TEMP_ADDR + oversampling) != 0) {
@@ -286,7 +292,7 @@ int32_t PIOS_MS5611_Read(uint8_t address, uint8_t *buffer, uint8_t len) {
 	//PIOS_MPU6000_I2C_SLV_Stop(&ms5611_i2c_cfg);
 	ms5611_i2c_cfg.reg = address;
 	ms5611_i2c_cfg.using_reg = true;
-	return PIOS_MPU6000_I2C_Read(&ms5611_i2c_cfg, len, buffer);
+	return PIOS_MPU6000_I2C_Read(&ms5611_i2c_cfg, len, buffer, inTask);
 }
 #else
 int32_t PIOS_MS5611_Read(uint8_t address, uint8_t *buffer, uint8_t len)
@@ -326,7 +332,7 @@ int32_t PIOS_MS5611_WriteCommand(uint8_t command)
 {
 	//PIOS_MPU6000_I2C_SLV_Stop(&ms5611_i2c_cfg);
 	ms5611_i2c_cfg.using_reg = false;
-	return PIOS_MPU6000_I2C_Write_Byte(&ms5611_i2c_cfg, command);
+	return PIOS_MPU6000_I2C_Write_Byte(&ms5611_i2c_cfg, command, inTask);
 }
 #else
 int32_t PIOS_MS5611_WriteCommand(uint8_t command)

@@ -259,6 +259,7 @@ static void AttitudeTask(__attribute__((unused)) void *parameters)
 
     // Force settings update to make sure rotation loaded
     settingsUpdatedCb(AttitudeSettingsHandle());
+	volatile float num_good = 0, num_bad = 0, percent_good = 0;
 
     PIOS_DELTATIME_Init(&dtconfig, UPDATE_EXPECTED, UPDATE_MIN, UPDATE_MAX, UPDATE_ALPHA);
 
@@ -313,6 +314,8 @@ static void AttitudeTask(__attribute__((unused)) void *parameters)
         // Only update attitude when sensor data is good
         if (retval != 0) {
             AlarmsSet(SYSTEMALARMS_ALARM_ATTITUDE, SYSTEMALARMS_ALARM_ERROR);
+			num_bad ++;
+			percent_good = (num_bad + num_good) > 0.0f ? (num_good / (num_bad+num_good)) : 0;
         } else {
             // Do not update attitude data in simulation mode
             if (!AttitudeStateReadOnly()) {
@@ -322,6 +325,11 @@ static void AttitudeTask(__attribute__((unused)) void *parameters)
             }
             PERF_MEASURE_PERIOD(counterPeriod);
             AlarmsClear(SYSTEMALARMS_ALARM_ATTITUDE);
+			num_good ++;
+			if(percent_good < 0) {
+			} else {
+				percent_good = (num_bad + num_good) > 0.0f ? (num_good / (num_bad+num_good)) : 0;
+			}
         }
     }
 }

@@ -254,13 +254,13 @@ extern void PIOS_MPU6000_I2C_SLV_Stop(struct pios_mpu6000_i2c_slave_cfg *cfg);
 //if reg != 0 read from that reg from device, read into buf,
 // return length read, -1 if err
 extern int32_t PIOS_MPU6000_I2C_Read(struct pios_mpu6000_i2c_slave_cfg *cfg, 
-		uint8_t len, uint8_t * buf);
+		uint8_t len, uint8_t * buf, bool inTask);
 
 //Write byte to MPU6000 aux device specified by addr,  
 //if reg != 0 write to that reg from device,
 // return non0 if err
 extern int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
-		uint8_t byte);
+		uint8_t byte, bool inTask);
 
 #endif /* PIOS_MPU6000_AUXI2C */
 

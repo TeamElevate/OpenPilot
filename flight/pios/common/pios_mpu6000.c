@@ -818,9 +818,13 @@ int PIOS_MPU6000_I2C_BASE_ADDR(uint8_t slave_num) {
 //No longer private
 
 int32_t PIOS_MPU6000_I2C_Read(struct pios_mpu6000_i2c_slave_cfg *cfg,
-		uint8_t len, uint8_t *buf) {
+		uint8_t len, uint8_t *buf, bool inTask) {
 	PIOS_MPU6000_I2C_CTRL_SLV(cfg, true, len);
-	PIOS_DELAY_WaituS(4500);
+	if(inTask) {
+		vTaskDelay(4.5f / portTICK_PERIOD_MS);
+	} else {
+		PIOS_DELAY_WaituS(4500);
+	}
 	PIOS_MPU6000_I2C_SLV_Stop(cfg);
 	/*
 	int base_addr = PIOS_MPU6000_I2C_BASE_ADDR(
@@ -840,7 +844,7 @@ int32_t PIOS_MPU6000_I2C_Read(struct pios_mpu6000_i2c_slave_cfg *cfg,
 }
 
 int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
-		uint8_t byte) {
+		uint8_t byte, bool inTask) {
 	//Set DO
 	while (PIOS_MPU6000_SetReg(PIOS_MPU6000_I2C_SLAVE_DO_0 +
 				cfg->slave_num,
@@ -848,7 +852,11 @@ int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
 	//Set ctrl
 	PIOS_MPU6000_I2C_CTRL_SLV(cfg, false, 1);
 
-	PIOS_DELAY_WaituS(4500);
+	if(inTask) {
+		vTaskDelay(4.5f / portTICK_PERIOD_MS);
+	} else {
+		PIOS_DELAY_WaituS(4500);
+	}
 	PIOS_MPU6000_I2C_SLV_Stop(cfg);
 	return 0;
 }
