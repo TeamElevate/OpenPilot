@@ -233,6 +233,7 @@ extern int32_t PIOS_MPU6000_Test();
 extern float PIOS_MPU6000_GetScale();
 extern float PIOS_MPU6000_GetAccelScale();
 extern bool PIOS_MPU6000_IRQHandler(void);
+extern bool PIOS_MPU6000_IRQEvent(void * data, TickType_t wait);
 
 #if defined(PIOS_MPU6000_AUXI2C)
 #define MAX_PIOS_MPU6000_I2C_SLAVES 4 //0,1,2,3 - ignoring 4

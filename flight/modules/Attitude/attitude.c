@@ -464,11 +464,16 @@ static int32_t updateSensorsCC3D(AccelStateData *accelStateData, GyroStateData *
 
 #if defined(PIOS_INCLUDE_MPU6000)
 
-    xQueueHandle queue = PIOS_MPU6000_GetQueue();
+    //xQueueHandle queue = PIOS_MPU6000_GetQueue();
 
+	if(PIOS_MPU6000_IRQEvent((void *)&mpu6000_data, SENSOR_PERIOD)) {
+		return -1;
+	}
+	/*
     if (xQueueReceive(queue, (void *)&mpu6000_data, SENSOR_PERIOD) == errQUEUE_EMPTY) {
         return -1; // Error, no data
     }
+	*/
     // Do not read raw sensor data in simulation mode
     if (GyroStateReadOnly() || AccelStateReadOnly()) {
         return 0;

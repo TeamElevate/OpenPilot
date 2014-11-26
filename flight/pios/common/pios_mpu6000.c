@@ -56,6 +56,7 @@ struct mpu6000_dev {
 // ! Global structure for this device device
 static struct mpu6000_dev *dev;
 volatile bool mpu6000_configured = false;
+SemaphoreHandle_t irq_sem;
 
 #if defined(PIOS_MPU6000_AUXI2C)
 #define AUXI2C_WAIT_TIME 1920 //4500 with SMPLRT_DIV of 40
@@ -178,6 +179,9 @@ static void PIOS_MPU6000_Config(struct pios_mpu6000_cfg const *cfg)
     while (PIOS_MPU6000_SetReg(PIOS_MPU6000_PWR_MGMT_REG, cfg->Pwr_mgmt_clk) != 0) {
         ;
     }
+
+	//Setup irq semaphore
+	irq_sem = xSemaphoreCreateBinary();
 
     // Interrupt configuration
     while (PIOS_MPU6000_SetReg(PIOS_MPU6000_INT_CFG_REG, cfg->interrupt_cfg) != 0) {
@@ -597,6 +601,116 @@ uint32_t mpu6000_interval_us;
 uint32_t mpu6000_time_us;
 uint32_t mpu6000_transfer_size;
 
+bool PIOS_MPU6000_IRQEvent(void * ret_data, TickType_t wait) {
+	if(xSemaphoreTake(irq_sem, wait) == pdTRUE) {
+		bool woken = false;
+
+		if (PIOS_MPU6000_ClaimBusISR(&woken) != 0) {
+			return woken;
+		}
+
+		static uint8_t mpu6000_send_buf[1 + PIOS_MPU6000_SAMPLES_BYTES] = { PIOS_MPU6000_FIFO_REG | 0x80 };
+		static uint8_t mpu6000_rec_buf[1 + PIOS_MPU6000_SAMPLES_BYTES];
+
+		if (PIOS_SPI_TransferBlock(dev->spi_id, &mpu6000_send_buf[0], &mpu6000_rec_buf[0], sizeof(mpu6000_send_buf), NULL) < 0) {
+			PIOS_MPU6000_ReleaseBusISR(&woken);
+			mpu6000_fails++;
+			return woken;
+		}
+
+		PIOS_MPU6000_ReleaseBusISR(&woken);
+
+		static struct pios_mpu6000_data data;
+
+		// In the case where extras samples backed up grabbed an extra
+		if (mpu6000_count >= PIOS_MPU6000_SAMPLES_BYTES * 2) {
+			mpu6000_fifo_backup++;
+			if (PIOS_MPU6000_ClaimBusISR(&woken) != 0) {
+				return woken;
+			}
+
+			if (PIOS_SPI_TransferBlock(dev->spi_id, &mpu6000_send_buf[0], &mpu6000_rec_buf[0], sizeof(mpu6000_send_buf), NULL) < 0) {
+				PIOS_MPU6000_ReleaseBusISR(&woken);
+				mpu6000_fails++;
+				return woken;
+			}
+
+			PIOS_MPU6000_ReleaseBusISR(&woken);
+		}
+
+		// Rotate the sensor to OP convention.  The datasheet defines X as towards the right
+		// and Y as forward.  OP convention transposes this.  Also the Z is defined negatively
+		// to our convention
+#if defined(PIOS_MPU6000_ACCEL)
+		// Currently we only support rotations on top so switch X/Y accordingly
+		switch (dev->cfg->orientation) {
+			case PIOS_MPU6000_TOP_0DEG:
+				data.accel_y = mpu6000_rec_buf[1] << 8 | mpu6000_rec_buf[2]; // chip X
+				data.accel_x = mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]; // chip Y
+				data.gyro_y  = mpu6000_rec_buf[9] << 8 | mpu6000_rec_buf[10]; // chip X
+				data.gyro_x  = mpu6000_rec_buf[11] << 8 | mpu6000_rec_buf[12]; // chip Y
+				break;
+			case PIOS_MPU6000_TOP_90DEG:
+				// -1 to bring it back to -32768 +32767 range
+				data.accel_y = -1 - (mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]); // chip Y
+				data.accel_x = mpu6000_rec_buf[1] << 8 | mpu6000_rec_buf[2]; // chip X
+				data.gyro_y  = -1 - (mpu6000_rec_buf[11] << 8 | mpu6000_rec_buf[12]); // chip Y
+				data.gyro_x  = mpu6000_rec_buf[9] << 8 | mpu6000_rec_buf[10]; // chip X
+				break;
+			case PIOS_MPU6000_TOP_180DEG:
+				data.accel_y = -1 - (mpu6000_rec_buf[1] << 8 | mpu6000_rec_buf[2]); // chip X
+				data.accel_x = -1 - (mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]); // chip Y
+				data.gyro_y  = -1 - (mpu6000_rec_buf[9] << 8 | mpu6000_rec_buf[10]); // chip X
+				data.gyro_x  = -1 - (mpu6000_rec_buf[11] << 8 | mpu6000_rec_buf[12]); // chip Y
+				break;
+			case PIOS_MPU6000_TOP_270DEG:
+				data.accel_y = mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]; // chip Y
+				data.accel_x = -1 - (mpu6000_rec_buf[1] << 8 | mpu6000_rec_buf[2]); // chip X
+				data.gyro_y  = mpu6000_rec_buf[11] << 8 | mpu6000_rec_buf[12]; // chip Y
+				data.gyro_x  = -1 - (mpu6000_rec_buf[9] << 8 | mpu6000_rec_buf[10]); // chip X
+				break;
+		}
+		data.gyro_z      = -1 - (mpu6000_rec_buf[13] << 8 | mpu6000_rec_buf[14]);
+		data.accel_z     = -1 - (mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6]);
+		data.temperature = mpu6000_rec_buf[7] << 8 | mpu6000_rec_buf[8];
+#else /* if defined(PIOS_MPU6000_ACCEL) */
+		data.gyro_x      = mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4];
+		data.gyro_y      = mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6];
+		switch (dev->cfg->orientation) {
+			case PIOS_MPU6000_TOP_0DEG:
+				data.gyro_y = mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4];
+				data.gyro_x = mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6];
+				break;
+			case PIOS_MPU6000_TOP_90DEG:
+				data.gyro_y = -1 - (mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6]); // chip Y
+				data.gyro_x = mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]; // chip X
+				break;
+			case PIOS_MPU6000_TOP_180DEG:
+				data.gyro_y = -1 - (mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]);
+				data.gyro_x = -1 - (mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6]);
+				break;
+			case PIOS_MPU6000_TOP_270DEG:
+				data.gyro_y = mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6]; // chip Y
+				data.gyro_x = -1 - (mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]); // chip X
+				break;
+		}
+		data.gyro_z = -1 - (mpu6000_rec_buf[7] << 8 | mpu6000_rec_buf[8]);
+		data.temperature = mpu6000_rec_buf[1] << 8 | mpu6000_rec_buf[2];
+#endif /* if defined(PIOS_MPU6000_ACCEL) */
+
+		signed portBASE_TYPE higherPriorityTaskWoken;
+		xQueueSendToBackFromISR(dev->queue, (void *)&data, &higherPriorityTaskWoken);
+
+		mpu6000_irq++;
+
+		//mpu6000_time_us = PIOS_DELAY_DiffuS(timeval);
+
+		*(struct pios_mpu6000_data *) ret_data = data;
+		return woken || higherPriorityTaskWoken == pdTRUE;
+	}
+	return false;
+}
+
 bool PIOS_MPU6000_IRQHandler(void)
 {
     bool woken = false;
@@ -635,107 +749,10 @@ bool PIOS_MPU6000_IRQHandler(void)
         return woken;
     }
 
-    if (PIOS_MPU6000_ClaimBusISR(&woken) != 0) {
-        return woken;
-    }
-
-    static uint8_t mpu6000_send_buf[1 + PIOS_MPU6000_SAMPLES_BYTES] = { PIOS_MPU6000_FIFO_REG | 0x80 };
-    static uint8_t mpu6000_rec_buf[1 + PIOS_MPU6000_SAMPLES_BYTES];
-
-    if (PIOS_SPI_TransferBlock(dev->spi_id, &mpu6000_send_buf[0], &mpu6000_rec_buf[0], sizeof(mpu6000_send_buf), NULL) < 0) {
-        PIOS_MPU6000_ReleaseBusISR(&woken);
-        mpu6000_fails++;
-        return woken;
-    }
-
-    PIOS_MPU6000_ReleaseBusISR(&woken);
-
-    static struct pios_mpu6000_data data;
-
-    // In the case where extras samples backed up grabbed an extra
-    if (mpu6000_count >= PIOS_MPU6000_SAMPLES_BYTES * 2) {
-        mpu6000_fifo_backup++;
-        if (PIOS_MPU6000_ClaimBusISR(&woken) != 0) {
-            return woken;
-        }
-
-        if (PIOS_SPI_TransferBlock(dev->spi_id, &mpu6000_send_buf[0], &mpu6000_rec_buf[0], sizeof(mpu6000_send_buf), NULL) < 0) {
-            PIOS_MPU6000_ReleaseBusISR(&woken);
-            mpu6000_fails++;
-            return woken;
-        }
-
-        PIOS_MPU6000_ReleaseBusISR(&woken);
-    }
-
-    // Rotate the sensor to OP convention.  The datasheet defines X as towards the right
-    // and Y as forward.  OP convention transposes this.  Also the Z is defined negatively
-    // to our convention
-#if defined(PIOS_MPU6000_ACCEL)
-    // Currently we only support rotations on top so switch X/Y accordingly
-    switch (dev->cfg->orientation) {
-    case PIOS_MPU6000_TOP_0DEG:
-        data.accel_y = mpu6000_rec_buf[1] << 8 | mpu6000_rec_buf[2]; // chip X
-        data.accel_x = mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]; // chip Y
-        data.gyro_y  = mpu6000_rec_buf[9] << 8 | mpu6000_rec_buf[10]; // chip X
-        data.gyro_x  = mpu6000_rec_buf[11] << 8 | mpu6000_rec_buf[12]; // chip Y
-        break;
-    case PIOS_MPU6000_TOP_90DEG:
-        // -1 to bring it back to -32768 +32767 range
-        data.accel_y = -1 - (mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]); // chip Y
-        data.accel_x = mpu6000_rec_buf[1] << 8 | mpu6000_rec_buf[2]; // chip X
-        data.gyro_y  = -1 - (mpu6000_rec_buf[11] << 8 | mpu6000_rec_buf[12]); // chip Y
-        data.gyro_x  = mpu6000_rec_buf[9] << 8 | mpu6000_rec_buf[10]; // chip X
-        break;
-    case PIOS_MPU6000_TOP_180DEG:
-        data.accel_y = -1 - (mpu6000_rec_buf[1] << 8 | mpu6000_rec_buf[2]); // chip X
-        data.accel_x = -1 - (mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]); // chip Y
-        data.gyro_y  = -1 - (mpu6000_rec_buf[9] << 8 | mpu6000_rec_buf[10]); // chip X
-        data.gyro_x  = -1 - (mpu6000_rec_buf[11] << 8 | mpu6000_rec_buf[12]); // chip Y
-        break;
-    case PIOS_MPU6000_TOP_270DEG:
-        data.accel_y = mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]; // chip Y
-        data.accel_x = -1 - (mpu6000_rec_buf[1] << 8 | mpu6000_rec_buf[2]); // chip X
-        data.gyro_y  = mpu6000_rec_buf[11] << 8 | mpu6000_rec_buf[12]; // chip Y
-        data.gyro_x  = -1 - (mpu6000_rec_buf[9] << 8 | mpu6000_rec_buf[10]); // chip X
-        break;
-    }
-    data.gyro_z      = -1 - (mpu6000_rec_buf[13] << 8 | mpu6000_rec_buf[14]);
-    data.accel_z     = -1 - (mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6]);
-    data.temperature = mpu6000_rec_buf[7] << 8 | mpu6000_rec_buf[8];
-#else /* if defined(PIOS_MPU6000_ACCEL) */
-    data.gyro_x      = mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4];
-    data.gyro_y      = mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6];
-    switch (dev->cfg->orientation) {
-    case PIOS_MPU6000_TOP_0DEG:
-        data.gyro_y = mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4];
-        data.gyro_x = mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6];
-        break;
-    case PIOS_MPU6000_TOP_90DEG:
-        data.gyro_y = -1 - (mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6]); // chip Y
-        data.gyro_x = mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]; // chip X
-        break;
-    case PIOS_MPU6000_TOP_180DEG:
-        data.gyro_y = -1 - (mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]);
-        data.gyro_x = -1 - (mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6]);
-        break;
-    case PIOS_MPU6000_TOP_270DEG:
-        data.gyro_y = mpu6000_rec_buf[5] << 8 | mpu6000_rec_buf[6]; // chip Y
-        data.gyro_x = -1 - (mpu6000_rec_buf[3] << 8 | mpu6000_rec_buf[4]); // chip X
-        break;
-    }
-    data.gyro_z = -1 - (mpu6000_rec_buf[7] << 8 | mpu6000_rec_buf[8]);
-    data.temperature = mpu6000_rec_buf[1] << 8 | mpu6000_rec_buf[2];
-#endif /* if defined(PIOS_MPU6000_ACCEL) */
-
-    signed portBASE_TYPE higherPriorityTaskWoken;
-    xQueueSendToBackFromISR(dev->queue, (void *)&data, &higherPriorityTaskWoken);
-
-    mpu6000_irq++;
-
-    mpu6000_time_us = PIOS_DELAY_DiffuS(timeval);
-
-    return woken || higherPriorityTaskWoken == pdTRUE;
+	BaseType_t xHigherPriorityTaskWoken; 
+	xHigherPriorityTaskWoken = pdFALSE;	
+	xSemaphoreGiveFromISR(irq_sem, &xHigherPriorityTaskWoken);
+	return woken;
 }
 
 #if defined(PIOS_MPU6000_AUXI2C)
