@@ -50,6 +50,7 @@
 // Private constants
 #define STACK_SIZE_BYTES 550
 #define TASK_PRIORITY    (tskIDLE_PRIORITY + 1)
+#define UPDATE_PERIOD 50
 
 // Private types
 
@@ -121,6 +122,8 @@ static void altitudeTask(__attribute__((unused)) void *parameters)
 	float last_altitude = 0;
 	uint32_t last_alt_time = 0;
 	bool first_alt_reading = true;
+	static portTickType lastSysTime; 
+	lastSysTime = xTaskGetTickCount();
     // Main task loop
     while (1) {
 		adc_result = 0;
@@ -228,6 +231,8 @@ static void altitudeTask(__attribute__((unused)) void *parameters)
             BaroSensorSet(&data);
 		}
 		*/
+		vTaskDelayUntil(&lastSysTime, 
+				UPDATE_PERIOD / portTICK_PERIOD_MS);
     }
 }
 

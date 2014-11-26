@@ -100,7 +100,7 @@ void PIOS_MS5611_EnterTask() {
  */
 int32_t PIOS_MS5611_StartADC(ConversionTypeTypeDef Type)
 {
-	PIOS_MS5611_EnterTask();
+	//PIOS_MS5611_EnterTask();
     /* Start the conversion */
     if (Type == TemperatureConv) {
         while (PIOS_MS5611_WriteCommand(MS5611_TEMP_ADDR + oversampling) != 0) {

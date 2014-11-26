@@ -57,6 +57,10 @@ struct mpu6000_dev {
 static struct mpu6000_dev *dev;
 volatile bool mpu6000_configured = false;
 
+#if defined(PIOS_MPU6000_AUXI2C)
+#define AUXI2C_WAIT_TIME 1920 //4500 with SMPLRT_DIV of 40
+#endif
+
 // ! Private functions
 static struct mpu6000_dev *PIOS_MPU6000_alloc(void);
 static int32_t PIOS_MPU6000_Validate(struct mpu6000_dev *dev);
@@ -245,14 +249,12 @@ int32_t PIOS_MPU6000_ConfigureRanges(
     }
 
     // Sample rate divider, chosen upon digital filtering settings
-	/*
+	//going from 40 -> 15, so wait 15/40 as long
     while (PIOS_MPU6000_SetReg(PIOS_MPU6000_SMPLRT_DIV_REG,
                                filterSetting == PIOS_MPU6000_LOWPASS_256_HZ ?
                                dev->cfg->Smpl_rate_div_no_dlp : dev->cfg->Smpl_rate_div_dlp) != 0) {
         ;
     }
-	*/
-    while (PIOS_MPU6000_SetReg(PIOS_MPU6000_SMPLRT_DIV_REG, 40));
 
     dev->filter = filterSetting;
 
@@ -821,9 +823,9 @@ int32_t PIOS_MPU6000_I2C_Read(struct pios_mpu6000_i2c_slave_cfg *cfg,
 		uint8_t len, uint8_t *buf, bool inTask) {
 	PIOS_MPU6000_I2C_CTRL_SLV(cfg, true, len);
 	if(inTask) {
-		vTaskDelay(4.5f / portTICK_PERIOD_MS);
+		vTaskDelay((AUXI2C_WAIT_TIME/1000.0f) / portTICK_PERIOD_MS);
 	} else {
-		PIOS_DELAY_WaituS(4500);
+		PIOS_DELAY_WaituS(AUXI2C_WAIT_TIME);
 	}
 	PIOS_MPU6000_I2C_SLV_Stop(cfg);
 	/*
@@ -853,9 +855,9 @@ int32_t PIOS_MPU6000_I2C_Write_Byte(struct pios_mpu6000_i2c_slave_cfg *cfg,
 	PIOS_MPU6000_I2C_CTRL_SLV(cfg, false, 1);
 
 	if(inTask) {
-		vTaskDelay(4.5f / portTICK_PERIOD_MS);
+		vTaskDelay((AUXI2C_WAIT_TIME/1000.0f) / portTICK_PERIOD_MS);
 	} else {
-		PIOS_DELAY_WaituS(4500);
+		PIOS_DELAY_WaituS(AUXI2C_WAIT_TIME);
 	}
 	PIOS_MPU6000_I2C_SLV_Stop(cfg);
 	return 0;
