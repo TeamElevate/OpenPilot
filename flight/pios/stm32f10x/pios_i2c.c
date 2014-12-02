@@ -894,7 +894,7 @@ static struct pios_i2c_adapter *PIOS_I2C_alloc(void)
 }
 #endif /* if defined(PIOS_INCLUDE_FREERTOS) */
 
-#define MAX_RX_BUF_LENGTH 100
+#define MAX_RX_BUF_LENGTH 35 //Edison is limited to send 32 bytes at a time
 
 uint8_t new_irq_data = 0;
 uint8_t i2c_slave_transmitting_count = 0;
@@ -961,6 +961,8 @@ int32_t PIOS_I2C_Init(uint32_t *i2c_id, const struct pios_i2c_adapter_cfg *cfg)
 	for(int i = 0; i < MAX_RX_TXN_BUF_LENGTH; ++i) {
 		rx_buf_q_txns[i].buf = rx_buf_space + i*MAX_RX_BUF_LENGTH;
 	}
+	i2c_adapter->i2c_slv_tx_idx = 0;
+	i2c_adapter->i2c_slv_tx_len = 0;
 
     /* Configure and enable I2C interrupts */
     NVIC_Init(&(i2c_adapter->cfg->event.init));
@@ -1281,7 +1283,11 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 		case I2C_EVENT_SLAVE_TRANSMITTER_ADDRESS_MATCHED: //EV1
 			I2C_clear_ADDR(i2c_adapter->cfg->regs);
 			//Send first byte
-			I2C_SendData(i2c_adapter->cfg->regs, ++new_irq_data);
+			I2C_SendData(i2c_adapter->cfg->regs, 
+					i2c_adapter->i2c_slv_tx_buf[
+					 i2c_adapter->i2c_slv_tx_idx++]);//++new_irq_data);
+			i2c_adapter->i2c_slv_tx_idx %=
+				i2c_adapter->i2c_slv_tx_len;
 			break;
 		case I2C_EVENT_SLAVE_BYTE_TRANSMITTING: //middle of transaction
 			i2c_slave_transmitting_count ++;
@@ -1295,7 +1301,11 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			}
 			//Read flag and write next byte to clear BTF if present
 			I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_BTF);
-			I2C_SendData(i2c_adapter->cfg->regs, ++new_irq_data);
+			I2C_SendData(i2c_adapter->cfg->regs, 
+					i2c_adapter->i2c_slv_tx_buf[
+					 i2c_adapter->i2c_slv_tx_idx++]);//++new_irq_data);
+			i2c_adapter->i2c_slv_tx_idx %=
+				i2c_adapter->i2c_slv_tx_len;
 			break;
 		case I2C_EVENT_SLAVE_ACK_FAILURE://End of transmission EV3_2
 		case I2C_EVENT_SLAVE_ACK_FAILURE | I2C_FLAG_BUSY :

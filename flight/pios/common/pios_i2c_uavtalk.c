@@ -39,18 +39,18 @@ void PIOS_I2C_UAVTALK_Init() {
 }
 
 int32_t PIOS_I2C_UAVTALK_Write(uint8_t *buffer, uint32_t length) {
-    const struct pios_i2c_txn txn_list[] = {
-        {
-            .info = __func__,
-            .addr = PIOS_I2C_UAVTALK_ADDR,
-            .rw   = PIOS_I2C_TXN_WRITE,
-            .len  = length,
-            .buf  = buffer,
-        }
-        ,
-    };
-
-    return PIOS_I2C_Transfer(PIOS_I2C_MAIN_ADAPTER, txn_list, NELEMENTS(txn_list));
+	if(length > MAX_I2C_SLV_TX_BUF_LEN) {
+		return -1;
+	}
+    struct pios_i2c_adapter * i2c_adapter;
+    i2c_adapter = (struct pios_i2c_adapter *)PIOS_I2C_MAIN_ADAPTER;
+	i2c_adapter->i2c_slv_tx_idx = 0;
+	for(uint32_t i = 0; i < length && i < MAX_I2C_SLV_TX_BUF_LEN; ++i) {
+		i2c_adapter->i2c_slv_tx_buf[i] = buffer[i];
+	}
+	i2c_adapter->i2c_slv_tx_len = 0;
+	//while(!sent) {DELAY();}
+	return 0;
 }
 
 static portTickType lastTimeAvailable = 0;

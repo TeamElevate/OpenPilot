@@ -31,6 +31,7 @@
 #include <stdbool.h>
 
 #define MAX_RX_TXN_BUF_LENGTH 2
+#define MAX_I2C_SLV_TX_BUF_LEN 100
 
 struct pios_i2c_adapter_cfg {
     I2C_TypeDef       *regs;
@@ -110,6 +111,11 @@ struct pios_i2c_adapter {
 	xQueueHandle i2cRxTxnQueue;
 	struct pios_i2c_txn *last_slave_txn;
 	struct pios_i2c_txn *slave_response_txns;
+
+	uint8_t i2c_slv_tx_buf[MAX_I2C_SLV_TX_BUF_LEN];
+	uint32_t i2c_slv_tx_idx;
+	uint32_t i2c_slv_tx_len;
+
 
     void    (*callback)();
 
