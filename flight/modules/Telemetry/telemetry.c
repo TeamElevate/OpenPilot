@@ -357,10 +357,10 @@ static void processObjEvent(UAVObjEvent *ev)
             while (retries < MAX_RETRIES && success == -1) {
                 // call blocks until ack is received or timeout
                 success = UAVTalkSendObject(uavTalkCon, ev->obj, ev->instId, UAVObjGetTelemetryAcked(&metadata), REQ_TIMEOUT_MS);
+				success = UAVTalkSendObject(i2cUAVTalkCon, ev->obj, ev->instId, UAVObjGetTelemetryAcked(&metadata), REQ_TIMEOUT_MS);
                 if (success == -1) {
                     ++retries;
                 }
-				success = UAVTalkSendObject(i2cUAVTalkCon, ev->obj, ev->instId, UAVObjGetTelemetryAcked(&metadata), REQ_TIMEOUT_MS);
             }
             // Update stats
             txRetries += retries;
@@ -372,6 +372,7 @@ static void processObjEvent(UAVObjEvent *ev)
             while (retries < MAX_RETRIES && success == -1) {
                 // call blocks until update is received or timeout
                 success = UAVTalkSendObjectRequest(uavTalkCon, ev->obj, ev->instId, REQ_TIMEOUT_MS);
+                success = UAVTalkSendObjectRequest(i2cUAVTalkCon, ev->obj, ev->instId, REQ_TIMEOUT_MS);
                 if (success == -1) {
                     ++retries;
                 }
