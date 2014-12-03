@@ -356,8 +356,11 @@ static void processObjEvent(UAVObjEvent *ev)
             // Send update to GCS (with retries)
             while (retries < MAX_RETRIES && success == -1) {
                 // call blocks until ack is received or timeout
-                success = UAVTalkSendObject(uavTalkCon, ev->obj, ev->instId, UAVObjGetTelemetryAcked(&metadata), REQ_TIMEOUT_MS);
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
 				success = UAVTalkSendObject(i2cUAVTalkCon, ev->obj, ev->instId, UAVObjGetTelemetryAcked(&metadata), REQ_TIMEOUT_MS);
+#else
+                success = UAVTalkSendObject(uavTalkCon, ev->obj, ev->instId, UAVObjGetTelemetryAcked(&metadata), REQ_TIMEOUT_MS);
+#endif
                 if (success == -1) {
                     ++retries;
                 }
@@ -371,8 +374,11 @@ static void processObjEvent(UAVObjEvent *ev)
             // Request object update from GCS (with retries)
             while (retries < MAX_RETRIES && success == -1) {
                 // call blocks until update is received or timeout
-                success = UAVTalkSendObjectRequest(uavTalkCon, ev->obj, ev->instId, REQ_TIMEOUT_MS);
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
                 success = UAVTalkSendObjectRequest(i2cUAVTalkCon, ev->obj, ev->instId, REQ_TIMEOUT_MS);
+#else
+                success = UAVTalkSendObjectRequest(uavTalkCon, ev->obj, ev->instId, REQ_TIMEOUT_MS);
+#endif
                 if (success == -1) {
                     ++retries;
                 }
@@ -672,13 +678,15 @@ static void updateTelemetryStats()
     uint32_t timeNow;
 
     // Get stats
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
+    UAVTalkGetStats(i2cUAVTalkCon, &utalkStats, true);
+#else
     UAVTalkGetStats(uavTalkCon, &utalkStats, true);
+#endif //PIOS_INCLUDE_I2C_UAVTALK
+
 #ifdef PIOS_INCLUDE_RFM22B
     UAVTalkAddStats(radioUavTalkCon, &utalkStats, true);
 #endif
-#ifdef PIOS_INCLUDE_I2C_UAVTALK
-    UAVTalkAddStats(i2cUAVTalkCon, &utalkStats, true);
-#endif //PIOS_INCLUDE_I2C_UAVTALK
 
     // Get object data
     FlightTelemetryStatsGet(&flightStats);
