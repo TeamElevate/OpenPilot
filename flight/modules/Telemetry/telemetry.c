@@ -360,6 +360,7 @@ static void processObjEvent(UAVObjEvent *ev)
                 if (success == -1) {
                     ++retries;
                 }
+				success = UAVTalkSendObject(i2cUAVTalkCon, ev->obj, ev->instId, UAVObjGetTelemetryAcked(&metadata), REQ_TIMEOUT_MS);
             }
             // Update stats
             txRetries += retries;
@@ -521,6 +522,7 @@ static int32_t transmitRadioData(uint8_t *data, int32_t length)
 
 #ifdef PIOS_INCLUDE_I2C_UAVTALK
 
+/*
 static void ProcessI2CStream(UAVTalkConnection inConnectionHandle,
 		uint8_t rxbyte) {
 	UAVTalkRxState state = UAVTalkProcessInputStreamQuiet(inConnectionHandle, rxbyte);
@@ -535,6 +537,7 @@ static void ProcessI2CStream(UAVTalkConnection inConnectionHandle,
 		}
 	}
 }
+*/
 
 static void I2CBridgeTask(__attribute__((unused)) void *parameters)
 {
@@ -554,7 +557,8 @@ static void I2CBridgeTask(__attribute__((unused)) void *parameters)
 			}
 		} else {
 			for(int32_t i = 0; i < bytes_to_process; ++i) {
-				ProcessI2CStream(i2cUAVTalkCon, i2c_data[i]);
+				UAVTalkProcessInputStream(i2cUAVTalkCon, i2c_data[i]);
+				//ProcessI2CStream(i2cUAVTalkCon, i2c_data[i]);
 			}
 		}
 	}
@@ -671,6 +675,9 @@ static void updateTelemetryStats()
 #ifdef PIOS_INCLUDE_RFM22B
     UAVTalkAddStats(radioUavTalkCon, &utalkStats, true);
 #endif
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
+    UAVTalkAddStats(i2cUAVTalkCon, &utalkStats, true);
+#endif //PIOS_INCLUDE_I2C_UAVTALK
 
     // Get object data
     FlightTelemetryStatsGet(&flightStats);

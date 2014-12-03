@@ -1,5 +1,6 @@
 import socket
-#TODO: add size check
+import mraa
+
 def readClient(client, size):
 	bytes_recd = 0
 	chunks = []
@@ -86,6 +87,27 @@ def getHead(client):
 
 def getPacket(client):
 '''
+
+def i2c_send(i2c, msg):
+	while len(msg) > 0:
+		to_send = min(len(msg),32)
+		i2c.write(msg[:to_send])
+		msg = msg[to_send:]
+
+def i2c_rcv(i2c, size):
+	bytes_recd = 0
+	chunks = []
+	while bytes_recd < size:
+		c = i2c.read(size)	
+		chunks.append(c)
+		bytes_recd += len(c)
+		if len(c) == 0:
+			break
+	return (''.join(chunks)).encode('hex')
+
+#def i2c_rcv_head(i2c):
+
+
 def setupSocket(host):
 	serversocket = socket.socket(
 			socket.AF_INET, socket.SOCK_STREAM)
@@ -96,31 +118,49 @@ def setupSocket(host):
 	serversocket.listen(5)
 	return serversocket
 
-def handle_client(cs):
+def setupI2c(port, addr):
+	i2c = mraa.I2c(port)
+	i2c.address(addr)
+	return i2c
+	
+
+def handle_client(cs, i2c):
 	while 1:
 		head = getHead(cs)
 		print head['type'], head['objId']
 		body = readClient(cs, head['len'])
 		raw_packet = head['raw']+getRaw(body)
-		sendClient(cs,raw_packet)
-		#i2c_send(raw_packet)
+		#sendClient(cs,raw_packet)
+		i2c_send(i2c, raw_packet)
+		d = i2c_rcv(i2c, 16)
+		print d
+		d = getRaw(d)
+		sendClient(cs, d)
 		'''
+		print len(d)
+		print d
+		for i, c in enumerate(d):
+			if c == '<':
+				print i, d[i:].encode('hex')
+				cs.send(d[i:])
+				break
 		if head['type'] == 'OBJ_REQ':
-			c_head = i2c_rcv_head()
-			c_body = (i2c_rcv_body(c_head['len']
+			c_head = i2c_rcv_head(i2c)
+			c_body = (i2c_rcv_body(i2c, c_head['len']
 			cs.send(getRaw(c_head) + getRaw(c_body))
 		'''
 			
 
 def start():
 	#host = socket.gethostname()
-	host = '127.0.0.1'
+	host = '0.0.0.0'
 	serversocket = setupSocket(host)
+	i2c = setupI2c(6, 0)
 	print host
 	while 1:
 		#accept connections from outside
 		(clientsocket, address) = serversocket.accept()
-		handle_client(clientsocket)
+		handle_client(clientsocket, i2c)
 		#data = clientsocket.recv(
 		#now do something with the clientsocket
 		#in this case, we'll pretend this is a threaded server

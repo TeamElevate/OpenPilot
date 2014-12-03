@@ -869,6 +869,10 @@ static struct pios_i2c_adapter *PIOS_I2C_alloc(void)
     struct pios_i2c_adapter *i2c_adapter;
 
     i2c_adapter = (struct pios_i2c_adapter *)pios_malloc(sizeof(*i2c_adapter));
+	volatile uint32_t a = (uint32_t) i2c_adapter;
+	if(!a) {
+		return NULL;
+	}
     if (!i2c_adapter) {
         return NULL;
     }
@@ -1283,11 +1287,15 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 		case I2C_EVENT_SLAVE_TRANSMITTER_ADDRESS_MATCHED: //EV1
 			I2C_clear_ADDR(i2c_adapter->cfg->regs);
 			//Send first byte
+			//i2c_adapter->i2c_slv_tx_idx = 0;
 			I2C_SendData(i2c_adapter->cfg->regs, 
 					i2c_adapter->i2c_slv_tx_buf[
 					 i2c_adapter->i2c_slv_tx_idx++]);//++new_irq_data);
 			i2c_adapter->i2c_slv_tx_idx %=
 				i2c_adapter->i2c_slv_tx_len;
+			if(i2c_adapter->i2c_slv_tx_len == 0) {
+				i2c_adapter->i2c_slv_tx_idx = 0;
+			}
 			break;
 		case I2C_EVENT_SLAVE_BYTE_TRANSMITTING: //middle of transaction
 			i2c_slave_transmitting_count ++;
@@ -1301,11 +1309,24 @@ void PIOS_I2C_EV_IRQ_Handler(uint32_t i2c_id) {
 			}
 			//Read flag and write next byte to clear BTF if present
 			I2C_GetFlagStatus(i2c_adapter->cfg->regs, I2C_FLAG_BTF);
-			I2C_SendData(i2c_adapter->cfg->regs, 
+			/*
+			if(i2c_adapter->i2c_slv_tx_idx >=
+				i2c_adapter->i2c_slv_tx_len) {
+				I2C_SendData(i2c_adapter->cfg->regs, 
+						0x2f);
+			} else {
+				*/
+				I2C_SendData(i2c_adapter->cfg->regs, 
 					i2c_adapter->i2c_slv_tx_buf[
 					 i2c_adapter->i2c_slv_tx_idx++]);//++new_irq_data);
+			//}
 			i2c_adapter->i2c_slv_tx_idx %=
 				i2c_adapter->i2c_slv_tx_len;
+			if(i2c_adapter->i2c_slv_tx_len == 0) {
+				i2c_adapter->i2c_slv_tx_idx = 0;
+			}
+					/*
+				*/
 			break;
 		case I2C_EVENT_SLAVE_ACK_FAILURE://End of transmission EV3_2
 		case I2C_EVENT_SLAVE_ACK_FAILURE | I2C_FLAG_BUSY :

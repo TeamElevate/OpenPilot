@@ -48,7 +48,7 @@ int32_t PIOS_I2C_UAVTALK_Write(uint8_t *buffer, uint32_t length) {
 	for(uint32_t i = 0; i < length && i < MAX_I2C_SLV_TX_BUF_LEN; ++i) {
 		i2c_adapter->i2c_slv_tx_buf[i] = buffer[i];
 	}
-	i2c_adapter->i2c_slv_tx_len = 0;
+	i2c_adapter->i2c_slv_tx_len = length;
 	//while(!sent) {DELAY();}
 	return 0;
 }
