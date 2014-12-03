@@ -1,5 +1,7 @@
 import socket
+import select
 import mraa
+import time
 
 def readClient(client, size, rev=False):
 	bytes_recd = 0
@@ -133,21 +135,26 @@ def setupI2c(port, addr):
 	
 
 def handle_client(cs, i2c):
+	count = 0
 	while 1:
-		head = getHead(cs, readClient)
-		print head['type'], head['objId']
-		body = readClient(cs, head['len'])
-		raw_packet = head['raw']+getRaw(body)
-		#sendClient(cs,raw_packet)
-		i2c_send(i2c, raw_packet)
+		in_ready, nana, nanananana = select.select([cs], [], [])
+		if in_ready:
+			head = getHead(cs, readClient)
+			print head['type'], head['objId']
+			body = readClient(cs, head['len'])
+			print "GCS MSG: ", head, body
+			raw_packet = head['raw']+getRaw(body)
+			#sendClient(cs,raw_packet)
+			i2c_send(i2c, raw_packet)
 		i2c_head = getHead(i2c, i2c_rcv)
 		i2c_body = i2c_rcv(i2c, i2c_head['len'])
 		i2c_raw  = i2c_head['raw'] + getRaw(i2c_body)
-		print i2c_head
-		print i2c_body
+		print "SLAVE RESP: ", i2c_head, i2c_body
 		#d = i2c_rcv(i2c, 16)
 		#d = getRaw(d)
 		sendClient(cs, i2c_raw)
+		count += 1
+		time.sleep(0.001)
 		'''
 		print len(d)
 		print d
