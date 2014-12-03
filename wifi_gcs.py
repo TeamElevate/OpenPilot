@@ -103,8 +103,8 @@ def handle_client(cs):
 		body = readClient(cs, head['len'])
 		raw_packet = head['raw']+getRaw(body)
 		sendClient(cs,raw_packet)
+		#i2c_send(raw_packet)
 		'''
-		i2c_send(getRaw(head)+getRaw(body))
 		if head['type'] == 'OBJ_REQ':
 			c_head = i2c_rcv_head()
 			c_body = (i2c_rcv_body(c_head['len']

@@ -37,7 +37,9 @@
 #include "flighttelemetrystats.h"
 #include "gcstelemetrystats.h"
 #include "hwsettings.h"
+#include "pios_i2c_uavtalk.h"
 #include "taskinfo.h"
+#include <flightstatus.h>
 
 // Private constants
 #define MAX_QUEUE_SIZE            TELEM_QUEUE_SIZE
@@ -59,10 +61,18 @@
 #define TASK_PRIORITY_RX          (tskIDLE_PRIORITY + 2)
 #define TASK_PRIORITY_TX          (tskIDLE_PRIORITY + 2)
 #define TASK_PRIORITY_RADRX       (tskIDLE_PRIORITY + 2)
+#define TASK_PRIORITY_I2CRX       (tskIDLE_PRIORITY + 2)
 #define REQ_TIMEOUT_MS            250
 #define MAX_RETRIES               2
 #define STATS_UPDATE_PERIOD_MS    4000
 #define CONNECTION_TIMEOUT_MS     8000
+
+//I2C stuff
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
+#define MAX_I2C_RX_BUF_LEN 35 //bytes
+#define MAX_I2C_RX_DELAY   50 //ms
+#endif //PIOS_INCLUDE_I2C_UAVTALK
+
 
 // Private types
 
@@ -92,6 +102,10 @@ static UAVTalkConnection uavTalkCon;
 static UAVTalkConnection radioUavTalkCon;
 #endif
 
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
+static UAVTalkConnection i2cUAVTalkCon;
+#endif //PIOS_INCLUDE_I2C_UAVTALK
+
 // Private functions
 static void telemetryTxTask(void *parameters);
 static void telemetryRxTask(void *parameters);
@@ -99,6 +113,11 @@ static void telemetryRxTask(void *parameters);
 static void radioRxTask(void *parameters);
 static int32_t transmitRadioData(uint8_t *data, int32_t length);
 #endif
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
+static void I2CBridgeTask(void *parameters);
+static int32_t I2CSendHandler(uint8_t *buf, int32_t length);
+#endif //PIOS_INCLUDE_I2C_UAVTALK
+
 static int32_t transmitData(uint8_t *data, int32_t length);
 static void registerObject(UAVObjHandle obj);
 static void updateObject(UAVObjHandle obj, int32_t eventType);
@@ -134,6 +153,11 @@ int32_t TelemetryStart(void)
     PIOS_TASK_MONITOR_RegisterTask(TASKINFO_RUNNING_RADIORX, radioRxTaskHandle);
 #endif
 
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
+	xTaskCreate(I2CBridgeTask, "I2CBridge", 
+			128, NULL, TASK_PRIORITY_I2CRX, NULL);
+#endif //PIOS_INCLUDE_I2C_UAVTALK
+
     return 0;
 }
 
@@ -146,6 +170,10 @@ int32_t TelemetryInitialize(void)
 {
     FlightTelemetryStatsInitialize();
     GCSTelemetryStatsInitialize();
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
+	PIOS_I2C_UAVTALK_Init();
+    FlightStatusInitialize();
+#endif //PIOS_INCLUDE_I2C_UAVTALK
 
     // Initialize vars
     timeOfLastObjectUpdate = 0;
@@ -169,6 +197,9 @@ int32_t TelemetryInitialize(void)
 #ifdef PIOS_INCLUDE_RFM22B
     radioUavTalkCon = UAVTalkInitialize(&transmitRadioData);
 #endif
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
+	i2cUAVTalkCon = UAVTalkInitialize(&I2CSendHandler);
+#endif //PIOS_INCLUDE_I2C_UAVTALK
 
     // Create periodic event that will be used to update the telemetry stats
     // FIXME STATS_UPDATE_PERIOD_MS is 4000ms while FlighTelemetryStats update period is 5000ms...
@@ -487,6 +518,52 @@ static int32_t transmitRadioData(uint8_t *data, int32_t length)
     return -1;
 }
 #endif /* PIOS_INCLUDE_RFM22B */
+
+#ifdef PIOS_INCLUDE_I2C_UAVTALK
+
+static void ProcessI2CStream(UAVTalkConnection inConnectionHandle,
+		uint8_t rxbyte) {
+	UAVTalkRxState state = UAVTalkProcessInputStreamQuiet(inConnectionHandle, rxbyte);
+	if(state == UAVTALK_STATE_COMPLETE) {
+		uint32_t objId = UAVTalkGetPacketObjId(inConnectionHandle);
+		switch(objId) {
+			default:
+				if(UAVTalkReceiveObject(inConnectionHandle) == 0) {
+					//Succesfully unpacked!
+				} else {
+				}
+		}
+	}
+}
+
+static void I2CBridgeTask(__attribute__((unused)) void *parameters)
+{
+	uint8_t i2c_data[MAX_I2C_RX_BUF_LEN];
+	int32_t bytes_to_process = -1;
+	while(1) {
+		bytes_to_process = PIOS_I2C_UAVTALK_Read(i2c_data, MAX_I2C_RX_BUF_LEN, 
+				MAX_I2C_RX_DELAY);
+		if(bytes_to_process < 0) {
+			//ERROR, or none available
+			if(bytes_to_process == PIOS_I2C_UAVTALK_SIGNAL_LOST_ERROR) {
+				//Disarm
+				FlightStatusData flightStatus;
+				FlightStatusGet(&flightStatus);
+				flightStatus.Armed = FLIGHTSTATUS_ARMED_DISARMED;
+				FlightStatusSet(&flightStatus);
+			}
+		} else {
+			for(int32_t i = 0; i < bytes_to_process; ++i) {
+				ProcessI2CStream(i2cUAVTalkCon, i2c_data[i]);
+			}
+		}
+	}
+}
+
+static int32_t I2CSendHandler(uint8_t *buf, int32_t length) {
+	return PIOS_I2C_UAVTALK_Write(buf, length);
+}
+#endif //PIOS_INCLUDE_I2C_UAVTALK
 
 /**
  * Transmit data buffer to the modem or USB port.
