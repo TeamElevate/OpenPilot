@@ -71,4 +71,5 @@ RemoteSystemsTempFiles
 *.orig
 *.diff~
 *.swp
+*.pyc
 cscope.out

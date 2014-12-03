@@ -2,6 +2,7 @@ import socket
 import select
 import mraa
 import time
+import threading
 
 def readClient(client, size, rev=False):
 	bytes_recd = 0
@@ -57,13 +58,28 @@ def getType(hex_str):
 		'ts'   : hasTS,
 	}
 
+ERROR_MSG = ['de','ad','be','ef',]
+
 def getHead(obj, read_fxn):
+	err_buf = []
 	while(True):
 		b = read_fxn(obj,1) 
 		if  b == '3c':
 			break
 		else:
-			print b
+			err_buf.append(b)
+			while len(err_buf) > len(ERROR_MSG):
+				err_buf.pop(0)
+			if len(err_buf) == len(ERROR_MSG):
+				equal = True
+				for i in xrange(len(err_buf)):
+					if err_buf[i] != ERROR_MSG[i]:
+						equal = False
+						break
+				#Error code, kill kill kill
+				if equal:
+					return None
+			#print b
 	raw_data = '3c'
 	ts = None
 	rt = read_fxn(obj,1)
@@ -89,12 +105,6 @@ def getHead(obj, read_fxn):
 		'raw'   : getRaw(raw_data),
 	}
 
-
-
-'''
-
-def getPacket(client):
-'''
 
 def i2c_send(i2c, msg):
 	while len(msg) > 0:
@@ -132,43 +142,35 @@ def setupI2c(port, addr):
 	i2c = mraa.I2c(port)
 	i2c.address(addr)
 	return i2c
-	
 
-def handle_client(cs, i2c):
-	count = 0
+def handle_gcs_rx(cs, i2c):
 	while 1:
-		in_ready, nana, nanananana = select.select([cs], [], [])
+		in_ready, nana, nanananana = select.select([cs], [], [], 0.001)
 		if in_ready:
 			head = getHead(cs, readClient)
-			print head['type'], head['objId']
+			print "GCS: ", head['type'], head['objId']
 			body = readClient(cs, head['len'])
-			print "GCS MSG: ", head, body
+			#print "GCS MSG: ", head, body
 			raw_packet = head['raw']+getRaw(body)
 			#sendClient(cs,raw_packet)
 			i2c_send(i2c, raw_packet)
+
+def handle_f1_rx(cs, i2c):	
+	while 1:
 		i2c_head = getHead(i2c, i2c_rcv)
-		i2c_body = i2c_rcv(i2c, i2c_head['len'])
-		i2c_raw  = i2c_head['raw'] + getRaw(i2c_body)
-		print "SLAVE RESP: ", i2c_head, i2c_body
-		#d = i2c_rcv(i2c, 16)
-		#d = getRaw(d)
-		sendClient(cs, i2c_raw)
-		count += 1
+		while i2c_head:
+			i2c_body = i2c_rcv(i2c, i2c_head['len'])
+			i2c_raw  = i2c_head['raw'] + getRaw(i2c_body)
+			print "SLV: ", i2c_head['type'], i2c_head['objId']
+			sendClient(cs, i2c_raw)
+			i2c_head = getHead(i2c, i2c_rcv)
 		time.sleep(0.001)
-		'''
-		print len(d)
-		print d
-		for i, c in enumerate(d):
-			if c == '<':
-				print i, d[i:].encode('hex')
-				cs.send(d[i:])
-				break
-		if head['type'] == 'OBJ_REQ':
-			c_head = i2c_rcv_head(i2c)
-			c_body = (i2c_rcv_body(i2c, c_head['len']
-			cs.send(getRaw(c_head) + getRaw(c_body))
-		'''
-			
+
+def handle_client(cs, i2c):
+	tasks = [handle_gcs_rx, handle_f1_rx,]
+	for task in tasks:
+		t = threading.Thread(target=task, args=(cs,i2c,))
+		t.start()
 
 def start():
 	#host = socket.gethostname()
